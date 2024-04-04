@@ -3,7 +3,7 @@
 
 git clone https://gitlab.etp.kit.edu/jkiesele/ml4reco_modules
 
-<do work>
+do work some work
 
 git add <my new or changed files>
 
