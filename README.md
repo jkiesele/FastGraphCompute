@@ -11,3 +11,4 @@ git commit "my commit message"
 
 git push
 
+and all done
