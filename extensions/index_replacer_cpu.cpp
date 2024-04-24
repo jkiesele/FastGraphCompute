@@ -2,6 +2,41 @@
 
 #define CHECK_INPUT(x) AT_ASSERTM(!x.is_cuda(), #x " must be a CPU tensor")
 
+
+
+
+void compute(const CPUDevice &d,
+            const int * to_be_replaced,
+            const int * replacements,
+            int * replaced,
+
+            const int n_to_be_replaced,
+            const int n_replacements)
+{
+    for(int i=0;i<n_to_be_replaced;i++){
+        const int ridx = to_be_replaced[i];
+        if(ridx<0){
+            replaced[i] = ridx;
+            continue;
+        }
+        if(ridx>=n_replacements){
+            printf("IndexReplacerOpFunctor: index out of range\n");
+            continue;
+        }
+        replaced[i] = replacements[ridx];
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
 void index_replacer_cpu(
     const at::Tensor& to_be_replaced,
     const at::Tensor& replacements,
