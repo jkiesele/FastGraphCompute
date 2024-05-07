@@ -53,14 +53,23 @@ void index_replacer_cpu(
     int n_to_be_replaced = to_be_replaced.size(0);
     int n_replacements = replacements.size(0);
 
-    for(int i=0;i<n_to_be_replaced;i++){
-        for(int j=0;j<n_replacements;j++){
-            if(to_be_replaced_a[i] == replacements_a[j]){
-                replaced_a[i] = replacements_a[j];
-                break;
-            }
-        }
-    }
+    // for(int i=0;i<n_to_be_replaced;i++){
+    //     for(int j=0;j<n_replacements;j++){
+    //         if(to_be_replaced_a[i] == replacements_a[j]){
+    //             replaced_a[i] = replacements_a[j];
+    //             break;
+    //         }
+    //     }
+    // }
+
+    compute(
+        at::globalContext().getCPU(),
+        to_be_replaced_a.data(),
+        replacements_a.data(),
+        replaced_a.data(),
+        n_to_be_replaced,
+        n_replacements
+    );
 }
 
 #ifdef CUDA_AVAILABLE
