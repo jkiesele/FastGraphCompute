@@ -4,7 +4,6 @@
 
 
 
-
 void compute(
             const int * to_be_replaced,
             const int * replacements,
@@ -25,15 +24,7 @@ void compute(
         }
         replaced[i] = replacements[ridx];
     }
-
 }
-
-
-
-
-
-
-
 
 
 
