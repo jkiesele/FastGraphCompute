@@ -5,7 +5,7 @@
 
 
 
-void compute(const CPUDevice &d,
+void compute(
             const int * to_be_replaced,
             const int * replacements,
             int * replaced,
@@ -63,7 +63,6 @@ void index_replacer_cpu(
     // }
 
     compute(
-        at::globalContext().getCPU(),
         to_be_replaced_a.data(),
         replacements_a.data(),
         replaced_a.data(),

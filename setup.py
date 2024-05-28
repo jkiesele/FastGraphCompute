@@ -77,7 +77,7 @@ print('---------------------')
 # Setup call
 tests_require = ['pytest', 'pytest-cov', 'scipy']
 setup(
-    name='torch_cmspepr',
+    name='ml4reco_modules',
     version='1.0.0',
     author='Lindsey Gray <Lindsey.Gray@cern.ch>, Jan Kieseler <jan.kieseler@cern.ch>, Thomas Klijnsma <thomasklijnsma@gmail.com>',
     author_email='Lindsey.Gray@cern.ch',
