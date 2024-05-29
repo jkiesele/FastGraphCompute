@@ -49,6 +49,11 @@ extensions_cuda = [
         'select_knn_cuda',
         ['extensions/select_knn_cuda.cpp', 'extensions/select_knn_cuda_kernel.cu'],
         **cuda_kwargs
+        ),
+    CUDAExtension(
+        'index_replacer_cuda',
+        ['extensions/index_replacer_cuda_kernel.cu'],
+        **cuda_kwargs
         )
     ]
 
