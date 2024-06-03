@@ -52,7 +52,7 @@ extensions_cuda = [
         ),
     CUDAExtension(
         'index_replacer_cuda',
-        ['extensions/index_replacer_cuda_kernel.cu'],
+        ['extensions/index_replacer_cuda.cpp','extensions/index_replacer_cuda_kernel.cu'],
         **cuda_kwargs
         )
     ]
