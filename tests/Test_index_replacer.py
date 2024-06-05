@@ -4,16 +4,12 @@ import index_replacer_cpu
 import unittest
 import os.path as osp
 
-def load_ops(so_file):
-    if not osp.isfile(so_file):
-        logger.error(f'Could not load op: No file {so_file}')
-    else:
-        torch.ops.load_library(so_file)
 
-
-THISDIR = osp.dirname(osp.abspath(__file__))
-load_ops(osp.join(THISDIR, "../select_knn_cpu.so"))
-load_ops(osp.join(THISDIR, "../select_knn_cuda.so"))
+# Load the shared libraries
+cpu_so_file = osp.join(osp.dirname(osp.realpath(__file__)), 'index_replacer_cpu.so')
+cuda_so_file = osp.join(osp.dirname(osp.realpath(__file__)), 'index_replacer_cuda.so')
+torch.ops.load_library(cpu_so_file)
+torch.ops.load_library(cuda_so_file)
 
 
 class TestIndexReplacer(unittest.TestCase):
@@ -27,8 +23,15 @@ class TestIndexReplacer(unittest.TestCase):
         # Initialize replaced with to_be_replaced
         replaced = to_be_replaced.clone()
 
+        # # Call the function
+        # index_replacer_cpu.index_replacer(to_be_replaced, replacements, replaced)
+        
         # Call the function
-        index_replacer_cpu.index_replacer(to_be_replaced, replacements, replaced)
+        if to_be_replaced.device == torch.device('cpu'):
+            torch.ops.index_replacer_cpu.index_replacer(to_be_replaced, replacements, replaced)
+        else:
+            torch.ops.index_replacer_cuda.index_replacer(to_be_replaced, replacements, replaced)
+
 
         # Check the results
         expected_replaced = torch.tensor([10, 11, 12, 13, 14, 15], dtype=torch.int32)
@@ -41,8 +44,10 @@ class TestIndexReplacer(unittest.TestCase):
         # Initialize replaced with to_be_replaced
         replaced = to_be_replaced.clone()
         
+        
         # Call the function
         index_replacer_cpu.index_replacer(to_be_replaced, replacements, replaced)
+
 
         # Check the results
         expected_replaced = torch.tensor([10, 11, 12, 13, 14, 15, 6], dtype=torch.int32)  # 6 should be unchanged
@@ -60,12 +65,20 @@ class TestIndexReplacer(unittest.TestCase):
         # Initialize replaced with to_be_replaced
         replaced = to_be_replaced.clone()
 
-        # Call the function
-        index_replacer_cpu.index_replacer(to_be_replaced, replacements, replaced)
+        # # Call the function
+        # index_replacer_cpu.index_replacer(to_be_replaced, replacements, replaced)
 
         # Check the results
         expected_replaced = torch.tensor([10, 11, 12, 13, 14, 15], dtype=torch.int64).cuda()
         self.assertTrue(torch.equal(replaced, expected_replaced), "Test basic index replacer CUDA failed")
+        
+        # Call the function
+        if to_be_replaced.device == torch.device('cpu'):
+            torch.ops.index_replacer_cpu.index_replacer(to_be_replaced, replacements, replaced)
+        else:
+            torch.ops.index_replacer_cuda.index_replacer(to_be_replaced, replacements, replaced)
+        
+    
 
     def test_index_replacer_out_of_range_cuda(self):
         # Prepare input tensors
