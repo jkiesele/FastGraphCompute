@@ -1,22 +1,23 @@
 #include <torch/extension.h>
-#include <ATen/cuda/CUDAContext.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <vector>
 
-__global__
-void calc(
-        const int64_t * to_be_replaced,
-        const int64_t * replacements,
-        int64_t * replaced,
+#define CHECK_CUDA(x) AT_ASSERTM(x.device().is_cuda(), #x " must be a CUDA tensor")
 
-        const int64_t n_to_be_replaced,
-        const int64_t n_replacements){
+template <typename scalar_t>
+__global__ void calc(
+    scalar_t* to_be_replaced,
+    scalar_t* replacements,
+    scalar_t* replaced,
+    int64_t n_to_be_replaced,
+    int64_t n_replacements) {
 
-    int64_t i =  blockIdx.x * blockDim.x + threadIdx.x;
+    int i =  blockIdx.x * blockDim.x + threadIdx.x;
     if(i >= n_to_be_replaced)
         return;
 
-    const int64_t ridx = to_be_replaced[i];
+    const int ridx = to_be_replaced[i];
     if(ridx<0){
         replaced[i] = ridx;
         return;
@@ -28,25 +29,38 @@ void calc(
     replaced[i] = replacements[ridx];
 }
 
-void index_replacer(
-        torch::Tensor to_be_replaced,
-        torch::Tensor replacements,
-        torch::Tensor replaced){
+// template<typename T>
+// void 
+std::tuple<torch::Tensor, torch::Tensor> index_replacer_cuda_fn(
+    torch::Tensor to_be_replaced,
+    torch::Tensor replacements,
+    torch::Tensor replaced,
+    int64_t n_to_be_replaced,
+    int64_t n_replacements
+    ){
 
-    const int64_t n_to_be_replaced = to_be_replaced.size(0);
-    const int64_t n_replacements = replacements.size(0);
+    CHECK_CUDA(to_be_replaced);
+    CHECK_CUDA(replacements);
+    CHECK_CUDA(replaced);
 
     const int threads = 1024;
     const dim3 blocks((n_to_be_replaced + threads - 1) / threads);
 
-    calc<<<blocks, threads>>>(
-        to_be_replaced.data_ptr<int64_t>(),
-        replacements.data_ptr<int64_t>(),
-        replaced.data_ptr<int64_t>(),
-        n_to_be_replaced,
-        n_replacements);
+    AT_DISPATCH_INTEGRAL_TYPES(to_be_replaced.scalar_type(), "calc", ([&] {
+        calc <scalar_t> <<<blocks, threads>>> (
+            to_be_replaced.data_ptr<scalar_t>(),
+            replacements.data_ptr<scalar_t>(),
+            replaced.data_ptr<scalar_t>(),
+            n_to_be_replaced,
+            n_replacements);
+    }));
+
+    cudaDeviceSynchronize();
+
+    return std::make_tuple(to_be_replaced, replacements);
 }
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    m.def("index_replacer", &index_replacer, "Index Replacer (CUDA)");
-}
+
+// PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+//     m.def("index_replacer", &index_replacer_wrapper, "Index Replacer (CUDA)");
+// }
