@@ -88,4 +88,5 @@ void index_replacer(
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("index_replacer", &index_replacer, "Index replacer");
+    m.def("index_replacer_cpu", &index_replacer_cpu, "Index replacer CPU");
 }

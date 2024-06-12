@@ -29,8 +29,7 @@ __global__ void calc(
     replaced[i] = replacements[ridx];
 }
 
-// template<typename T>
-// void 
+
 std::tuple<torch::Tensor, torch::Tensor> index_replacer_cuda_fn(
     torch::Tensor to_be_replaced,
     torch::Tensor replacements,
@@ -59,8 +58,3 @@ std::tuple<torch::Tensor, torch::Tensor> index_replacer_cuda_fn(
 
     return std::make_tuple(to_be_replaced, replacements);
 }
-
-
-// PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-//     m.def("index_replacer", &index_replacer_wrapper, "Index Replacer (CUDA)");
-// }
