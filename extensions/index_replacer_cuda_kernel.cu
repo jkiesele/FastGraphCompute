@@ -30,7 +30,7 @@ __global__ void calc(
 }
 
 
-std::tuple<torch::Tensor, torch::Tensor> index_replacer_cuda_fn(
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> index_replacer_cuda_fn(
     torch::Tensor to_be_replaced,
     torch::Tensor replacements,
     torch::Tensor replaced,
@@ -56,5 +56,5 @@ std::tuple<torch::Tensor, torch::Tensor> index_replacer_cuda_fn(
 
     cudaDeviceSynchronize();
 
-    return std::make_tuple(to_be_replaced, replacements);
+    return std::make_tuple(to_be_replaced, replacements, replaced);
 }
