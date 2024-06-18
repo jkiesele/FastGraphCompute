@@ -37,8 +37,9 @@ cpu_kwargs = dict(
     )
 extensions_cpu = [
     CppExtension('select_knn_cpu', ['extensions/select_knn_cpu.cpp'], **cpu_kwargs),
-    CppExtension('index_replacer_cpu', ['extensions/index_replacer_cpu.cpp'], **cpu_kwargs)
-    ]
+    CppExtension('index_replacer_cpu', ['extensions/index_replacer_cpu.cpp'], **cpu_kwargs),
+    CppExtension('bin_by_coordinates_cpu', ['extensions/bin_by_coordinates_cpu.cpp'], **cpu_kwargs)  # Add this line
+]
 cuda_kwargs = dict(
     include_dirs=[extensions_dir],
     extra_compile_args={'cxx': ['-O2'], 'nvcc': ['--expt-relaxed-constexpr', '-O2']},
@@ -55,6 +56,11 @@ extensions_cuda = [
         ['extensions/index_replacer_cuda.cpp','extensions/index_replacer_cuda_kernel.cu'],
         **cuda_kwargs
         )
+    # CUDAExtension(
+    #     'bin_by_coordinates_cuda',
+    #     ['extensions/bin_by_coordinates_cuda.cpp', 'extensions/bin_by_coordinates_cuda_kernel.cu'],  # Add this line
+    #     **cuda_kwargs
+    # )
     ]
 
 extensions = []
