@@ -55,13 +55,14 @@ class TestIndexReplacer(unittest.TestCase):
 
         # Call the function
         index_replacer_cpu.index_replacer(to_be_replaced, replacements, replaced)
-
+ 
         # Check the results
         for i in range(10000):
-            if i < replacements.size(0):
-                self.assertEqual(replaced[i], replacements[i], "Test large index replacer CPU failed at index {}".format(i))
+            if to_be_replaced[i] < replacements.size(0):
+                self.assertEqual(replaced[i].item(), replacements[to_be_replaced[i]].item(), "Test large index replacer CPU failed at index {}".format(i))
             else:
-                self.assertEqual(replaced[i], to_be_replaced[i], "Test large index replacer CPU failed at index {}".format(i))
+                self.assertEqual(replaced[i].item(), to_be_replaced[i].item(), "Test large index replacer CPU failed at index {}".format(i))
+
         
 
 #tests for index_replacer_cuda
@@ -106,14 +107,14 @@ class TestIndexReplacer(unittest.TestCase):
         replaced = to_be_replaced.clone()
 
         # Call the function
-        index_replacer_cuda.index_replacer(to_be_replaced, replacements) #, replaced, to_be_replaced.size(0), replacements.size(0)) 
+        index_replacer_cuda.index_replacer(to_be_replaced, replacements, replaced, to_be_replaced.size(0), replacements.size(0)) 
 
         # Check the results
         for i in range(10000):
-            if i < replacements.size(0):
-                self.assertEqual(replaced[i], replacements[i], "Test large index replacer CUDA failed at index {}".format(i))
+            if to_be_replaced[i] < replacements.size(0):
+                self.assertEqual(replaced[i].item(), replacements[to_be_replaced[i]].item(), "Test large index replacer CUDA failed at index {}".format(i))
             else:
-                self.assertEqual(replaced[i], to_be_replaced[i], "Test large index replacer CUDA failed at index {}".format(i))
+                self.assertEqual(replaced[i].item(), to_be_replaced[i].item(), "Test large index replacer CUDA failed at index {}".format(i))
             
             
     if __name__ == "__main__":
