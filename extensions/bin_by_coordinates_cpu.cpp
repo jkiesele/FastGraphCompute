@@ -1,4 +1,5 @@
 #include <torch/extension.h>
+#include <cmath> // For std::floor
 
 #define CHECK_INPUT(x) AT_ASSERTM(!x.is_cuda(), #x " must be a CPU tensor")
 #define I2D(i, j, n) ((i)*(n) + (j))
