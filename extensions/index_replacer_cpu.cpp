@@ -1,92 +1,56 @@
 #include <torch/extension.h>
+#include <vector>
+#include <iostream>
 
-#define CHECK_INPUT(x) AT_ASSERTM(!x.is_cuda(), #x " must be a CPU tensor")
+#define CHECK_CPU(x) TORCH_CHECK(x.device().is_cpu(), #x " must be a CPU tensor")
 
-
-
-void compute(
-            const int * to_be_replaced,
-            const int * replacements,
-            int * replaced,
-
-            const int n_to_be_replaced,
-            const int n_replacements)
-{
-    for(int i=0;i<n_to_be_replaced;i++){
-        const int ridx = to_be_replaced[i];
-        if(ridx<0){
+void index_replacer_cpu_kernel(
+    const int* to_be_replaced,
+    const int* replacements,
+    int* replaced,
+    const int n_to_be_replaced,
+    const int n_replacements
+) {
+    for (int i = 0; i < n_to_be_replaced; ++i) {
+        int ridx = to_be_replaced[i];
+        if (ridx < 0 || ridx >= n_replacements) {
             replaced[i] = ridx;
-            continue;
-        }
-        if(ridx>=n_replacements){
-            printf("IndexReplacerOpFunctor: index out of range\n");
+            if (ridx >= n_replacements) {
+                std::cout << "IndexReplacer: index out of range\n";
+            }
             continue;
         }
         replaced[i] = replacements[ridx];
     }
 }
 
-
-
-void index_replacer_cpu(
-    const at::Tensor& to_be_replaced,
-    const at::Tensor& replacements,
-    at::Tensor& replaced
+torch::Tensor index_replacer_cpu(
+    torch::Tensor to_be_replaced,
+    torch::Tensor replacements
 ) {
-    CHECK_INPUT(to_be_replaced);
-    CHECK_INPUT(replacements);
-    CHECK_INPUT(replaced);
+    CHECK_CPU(to_be_replaced);
+    CHECK_CPU(replacements);
 
-    auto to_be_replaced_a = to_be_replaced.accessor<int,1>();
-    auto replacements_a = replacements.accessor<int,1>();
-    auto replaced_a = replaced.accessor<int,1>();
+    auto replaced = torch::empty_like(to_be_replaced);
 
-    int n_to_be_replaced = to_be_replaced.size(0);
-    int n_replacements = replacements.size(0);
+    auto n_to_be_replaced = to_be_replaced.numel();
+    auto n_replacements = replacements.size(0);
 
-    // for(int i=0;i<n_to_be_replaced;i++){
-    //     for(int j=0;j<n_replacements;j++){
-    //         if(to_be_replaced_a[i] == replacements_a[j]){
-    //             replaced_a[i] = replacements_a[j];
-    //             break;
-    //         }
-    //     }
-    // }
+    auto to_be_replaced_ptr = to_be_replaced.data_ptr<int>();
+    auto replacements_ptr = replacements.data_ptr<int>();
+    auto replaced_ptr = replaced.data_ptr<int>();
 
-    compute(
-        to_be_replaced_a.data(),
-        replacements_a.data(),
-        replaced_a.data(),
+    index_replacer_cpu_kernel(
+        to_be_replaced_ptr,
+        replacements_ptr,
+        replaced_ptr,
         n_to_be_replaced,
         n_replacements
     );
+
+    return replaced;
 }
 
-#ifdef CUDA_AVAILABLE
-void index_replacer_cuda(
-    const at::Tensor& to_be_replaced,
-    const at::Tensor& replacements,
-    at::Tensor& replaced
-);
-#endif
-
-void index_replacer(
-    const at::Tensor& to_be_replaced,
-    const at::Tensor& replacements,
-    at::Tensor& replaced
-) {
-    if (replaced.is_cuda()) {
-        #ifdef CUDA_AVAILABLE
-        index_replacer_cuda(to_be_replaced, replacements, replaced);
-        #else
-        AT_ERROR("index_replacer is not available on CUDA");
-        #endif
-    } else {
-        index_replacer_cpu(to_be_replaced, replacements, replaced);
-    }
-}
-
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    m.def("index_replacer", &index_replacer, "Index replacer");
-    m.def("index_replacer_cpu", &index_replacer_cpu, "Index replacer CPU");
+TORCH_LIBRARY(index_replacer_cpu, m) {
+    m.def("index_replacer_cpu", index_replacer_cpu);
 }
