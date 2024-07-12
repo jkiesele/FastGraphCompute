@@ -1,8 +1,7 @@
 #include <torch/extension.h>
-#include <vector>
 
 // CUDA forward declarations
-std::vector<torch::Tensor> index_replacer_cuda_fn(
+torch::Tensor index_replacer_cuda_fn(
     torch::Tensor to_be_replaced,
     torch::Tensor replacements
 );
@@ -12,7 +11,7 @@ std::vector<torch::Tensor> index_replacer_cuda_fn(
 #define CHECK_CONTIGUOUS(x) TORCH_CHECK(x.is_contiguous(), #x " must be contiguous")
 #define CHECK_INPUT(x) CHECK_CUDA(x); CHECK_CONTIGUOUS(x)
 
-std::vector<torch::Tensor> index_replacer_cuda_interface(
+torch::Tensor index_replacer_cuda_interface(
     torch::Tensor to_be_replaced,
     torch::Tensor replacements
 ) {
