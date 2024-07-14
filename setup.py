@@ -55,12 +55,12 @@ extensions_cuda = [
         'index_replacer_cuda',
         ['extensions/index_replacer_cuda.cpp','extensions/index_replacer_cuda_kernel.cu'],
         **cuda_kwargs
-        )
-    # CUDAExtension(
-    #     'bin_by_coordinates_cuda',
-    #     ['extensions/bin_by_coordinates_cuda.cpp', 'extensions/bin_by_coordinates_cuda_kernel.cu'],  # Add this line
-    #     **cuda_kwargs
-    # )
+        ),
+    CUDAExtension(
+        'bin_by_coordinates_cuda',
+        ['extensions/bin_by_coordinates_cuda.cpp', 'extensions/bin_by_coordinates_cuda_kernel.cu'],
+        **cuda_kwargs
+    )
     ]
 
 extensions = []
@@ -90,7 +90,7 @@ tests_require = ['pytest', 'pytest-cov', 'scipy']
 setup(
     name='ml4reco_modules',
     version='1.0.0',
-    author='Lindsey Gray <Lindsey.Gray@cern.ch>, Jan Kieseler <jan.kieseler@cern.ch>, Thomas Klijnsma <thomasklijnsma@gmail.com>',
+    author='Lindsey Gray <Lindsey.Gray@cern.ch>, Jan Kieseler <jan.kieseler@cern.ch>, Thomas Klijnsma <thomasklijnsma@gmail.com>, Ayman Ratey',
     author_email='Lindsey.Gray@cern.ch',
     url='',
     description=('PyTorch Extension Library for HGCAL Specific knn optimizations'),
