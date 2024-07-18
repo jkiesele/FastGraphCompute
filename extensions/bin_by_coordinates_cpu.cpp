@@ -47,22 +47,25 @@ void calc(
         int mul = 1;
         int idx = 0;
 
-        for (int ic = n_coords - 1; ic >= 0; --ic) {
-            int cidx = static_cast<int>(d_coords[I2D(iv, ic, n_coords)] / d_binswidth[0]);
+        for (int ic = n_coords-1; ic > -1; ic--) {
 
-            if (cidx < 0 || cidx >= n_bins[ic]) {
-                cidx = 0; // stable, but will create bogus later
+            int cidx = d_coords[I2D(iv,ic,n_coords)] / d_binswidth[0];
+
+            if(cidx < 0 || cidx >= n_bins[ic]){
+                printf("index %d of coordinate %d exceeds n bins %d or below 0, coord %e\n",cidx,ic,n_bins[ic],d_coords[I2D(iv,ic,n_coords)]);
+                cidx = 0; //stable, but will create bogus later
             }
-            d_assigned_bin[I2D(iv, ic + 1, n_coords + 1)] = cidx;
+            d_assigned_bin[I2D(iv,ic+1,n_coords+1)]=cidx;
 
             idx += cidx * mul;
             mul *= n_bins[ic];
+
         }
 
-        // get row split index last
-        int rsidx = 0;
-        for (int irs = 1; irs < n_rs; ++irs) {
-            if (d_rs[irs] > iv) {
+        //get row split index last
+        int rsidx=0;
+        for(int irs=1 ; irs < n_rs ; irs++){
+            if(d_rs[irs] > iv){
                 break;
             }
             rsidx++;
@@ -70,17 +73,23 @@ void calc(
 
         idx += rsidx * mul;
 
-        if (idx >= n_total_bins) {
+        if(idx>=n_total_bins){
+            printf("global index larger than total bins\n");//DEBUG if you see this you're screwed
             continue;
         }
 
-        d_assigned_bin[I2D(iv, 0, n_coords + 1)] = rsidx; // now this is c-style ordering with [rs, c_N, c_N-1, ..., c_0]
-        d_flat_assigned_bin[iv] = idx;
+        d_assigned_bin[I2D(iv,0,n_coords+1)]=rsidx; //now this is c-style ordering with [rs, c_N, c_N-1, ..., c_0]
+        d_flat_assigned_bin[iv]=idx;
 
-        if (calc_n_per_bin) {
+
+        if(calc_n_per_bin){
+            //atomic in parallel!
             d_n_per_bin[idx] += 1;
+
         }
-    } // iv loop
+        //end same for cu
+
+    }//iv loop
 }
 
 void compute(
