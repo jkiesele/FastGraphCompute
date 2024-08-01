@@ -7,10 +7,21 @@ cpu_so_file = osp.join(osp.dirname(osp.realpath(__file__)), 'bin_by_coordinates_
 torch.ops.load_library(cpu_so_file)
 
 # Define input tensors
-coordinates = torch.tensor([[1.0, 2.0], [3.0, 4.0]], dtype=torch.float32)
-row_splits = torch.tensor([0, 1, 2], dtype=torch.int32)
-bin_width = torch.tensor([1.0], dtype=torch.float32)
-nbins = torch.tensor([4, 4], dtype=torch.int32)
+# Testing a range of coordinates, including edge cases at the boundaries
+coordinates = torch.tensor([
+    [0.1, 0.1],  # Expected to fall into the first bin in each dimension
+    [2.5, 2.5],  # Mid-range, testing internal binning
+    [4.9, 4.9],  # Near the edge, should be in the last bin if nbins and bin_width align correctly
+    [-0.1, -0.1], # Out of bounds, should be clamped or handled according to the function's capability
+    [5.1, 5.1]   # Exactly on the edge, handling depends on the edge inclusion logic
+], dtype=torch.float32)
+
+# Simulate multiple row splits, suggesting different sets of coordinates
+row_splits = torch.tensor([0, 3], dtype=torch.int32)  # Three groups: first 2, next 3
+
+bin_width = torch.tensor([0.5], dtype=torch.float32)  # Bin width of 1 unit
+nbins = torch.tensor([10, 10], dtype=torch.int32)  # 5 bins in each dimension, covering [0, 5) theoretically
+
 calc_n_per_bin = True
 
 # Call the C++ extension function
