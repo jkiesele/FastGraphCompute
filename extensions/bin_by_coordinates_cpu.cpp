@@ -20,7 +20,7 @@ void computeHelper(
     *out_tot_bins = n * (nrs - 1);
 }
 
-void set_defaults(
+static void set_defaults(
     int32_t *d_n_per_bin,
     const size_t n_total_bins)
 {
@@ -29,7 +29,7 @@ void set_defaults(
     }
 }
 
-void calc(
+static void calc(
     const float *d_coords,
     const int32_t *d_rs,
     const float *d_binswidth, // singleton
@@ -43,7 +43,7 @@ void calc(
     const size_t n_total_bins,
     const bool calc_n_per_bin)
 {
-    for (size_t iv = 0; iv < n_vert; ++iv) {
+    for (int32_t iv = 0; iv < n_vert; ++iv) {
         int mul = 1;
         int idx = 0;
 
@@ -120,15 +120,15 @@ bin_by_coordinates_cpu(
     torch::Tensor nbins,
     bool calc_n_per_bin)
 {
-    const size_t n_vert = coordinates.size(0);
-    const size_t n_coords = coordinates.size(1);
-    const size_t n_rs = row_splits.size(0);
-    const size_t n_total_bins = nbins.numel();
+    const auto n_vert = coordinates.size(0);
+    const auto n_coords = coordinates.size(1);
+    const auto n_rs = row_splits.size(0);
+    const auto n_total_bins = nbins.prod().item<int>();
 
     auto options = torch::TensorOptions().dtype(torch::kInt32);
     auto output_assigned_bin = torch::empty({n_vert, n_coords + 1}, options);
-    auto output_flat_assigned_bin = torch::empty({n_vert}, options);
-    auto output_n_per_bin = torch::zeros({n_total_bins}, options);
+    auto output_flat_assigned_bin = torch::empty(n_vert, options);
+    auto output_n_per_bin = torch::zeros(n_total_bins, options);
 
     auto d_coords = coordinates.data_ptr<float>();
     auto d_rs = row_splits.data_ptr<int32_t>();
@@ -138,13 +138,14 @@ bin_by_coordinates_cpu(
     auto d_flat_assigned_bin = output_flat_assigned_bin.data_ptr<int32_t>();
     auto d_n_per_bin = output_n_per_bin.data_ptr<int32_t>();
 
-    compute(d_coords, d_rs, d_bin_width, d_nbins,
-            d_assigned_bin, d_flat_assigned_bin, d_n_per_bin,
-            n_vert, n_coords, n_rs, n_total_bins, calc_n_per_bin);
+    set_defaults(d_n_per_bin, n_total_bins);
+    calc(d_coords, d_rs, d_bin_width, d_nbins,
+         d_assigned_bin, d_flat_assigned_bin, d_n_per_bin,
+         n_vert, n_coords, n_rs, n_total_bins, calc_n_per_bin);
 
     return std::make_tuple(output_assigned_bin, output_flat_assigned_bin, output_n_per_bin);
 }
 
 TORCH_LIBRARY(bin_by_coordinates_cpu, m) {
-    m.def("bin_by_coordinates_cpu", bin_by_coordinates_cpu);
+    m.def("bin_by_coordinates_cpu", &bin_by_coordinates_cpu);
 }
