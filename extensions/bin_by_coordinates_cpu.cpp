@@ -1,4 +1,5 @@
 #include <torch/extension.h>
+#include <vector>
 
 #define CHECK_CPU(x) AT_ASSERTM(x.device().is_cpu(), #x " must be CPU tensor")
 #define I2D(i,j,Nj) j + Nj*i
@@ -24,7 +25,7 @@ static void set_defaults(
     int32_t *d_n_per_bin,
     const size_t n_total_bins)
 {
-    for (size_t i = 0; i < n_total_bins; ++i) {
+    for (int  i = 0; i < n_total_bins; i++) {
         d_n_per_bin[i] = 0;
     }
 }
@@ -43,7 +44,7 @@ static void calc(
     const size_t n_total_bins,
     const bool calc_n_per_bin)
 {
-    for (int32_t iv = 0; iv < n_vert; ++iv) {
+    for (int32_t iv = 0; iv < n_vert; iv++) {
         int mul = 1;
         int idx = 0;
 
