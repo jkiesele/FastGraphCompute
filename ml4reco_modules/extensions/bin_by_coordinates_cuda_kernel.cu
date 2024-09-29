@@ -44,7 +44,11 @@ __global__ void calc(
         int cidx = d_coords[I2D(iv, ic, n_coords)] / d_binswidth[0];
         if (cidx >= n_bins[ic]) {
             printf("Fatal error: index %d of coordinate %d exceeds n bins %d\n", cidx, ic, n_bins[ic]);
-            cidx = 0;
+            cidx = n_bins[ic] - 1;
+        }
+        else if (cidx < 0) {
+            printf("Fatal error: index %d of coordinate %d less than n bins %d\n", cidx, ic, n_bins[ic]);
+            cidx=0;
         }
         d_assigned_bin[I2D(iv, ic + 1, n_coords + 1)] = cidx;
         idx += cidx * mul;
@@ -62,7 +66,7 @@ __global__ void calc(
     idx += rsidx * mul;
 
     if (idx >= n_total_bins) {
-        printf("global index larger than total bins\n");
+        printf("global index larger than total bins %d %d \n", idx, n_total_bins);
         return;
     }
 

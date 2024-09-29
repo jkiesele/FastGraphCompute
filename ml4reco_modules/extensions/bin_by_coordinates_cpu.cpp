@@ -47,18 +47,20 @@ static void computeAssignments(
     for (size_t iv = 0; iv < n_vert; ++iv) {
         int mul = 1;
         int idx = 0;
+        int rsidx = std::upper_bound(d_rs, d_rs + n_rs, iv) - d_rs - 1;
 
         for (int ic = n_coords - 1; ic >= 0; --ic) {
             int cidx = static_cast<int>(d_coords[I2D(iv, ic, n_coords)] / d_binswidth[0]);
+
+            d_assigned_bin[I2D(iv, 0, n_coords+1)] = rsidx;
             if(cidx < 0 || cidx >= n_bins[ic]){
                 cidx = std::min(std::max(0, cidx), n_bins[ic] - 1);
             }
-            d_assigned_bin[I2D(iv, ic, n_coords)] = cidx;
+            d_assigned_bin[I2D(iv, ic+1, n_coords+1)] = cidx;
             idx += cidx * mul;
             mul *= n_bins[ic];
         }
 
-        int rsidx = std::upper_bound(d_rs, d_rs + n_rs, iv) - d_rs - 1;
         idx += rsidx * mul;
         if (idx < n_total_bins)
         {
@@ -88,7 +90,7 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> bin_by_coordinates_cpu(
     const auto n_total_bins = nbins.prod().item<int>();
 
     auto options = torch::TensorOptions().dtype(torch::kInt32);
-    auto assigned_bin = torch::empty({n_vert, n_coords}, options);
+    auto assigned_bin = torch::empty({n_vert, n_coords+1}, options);
     auto flat_assigned_bin = torch::empty(n_vert, options);
     auto n_per_bin = torch::zeros(n_total_bins, options);
 
