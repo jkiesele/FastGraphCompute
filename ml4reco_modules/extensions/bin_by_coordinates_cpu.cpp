@@ -57,10 +57,11 @@ static void computeAssignments(
             idx += cidx * mul;
             mul *= n_bins[ic];
         }
-        
-        int rsidx = std::lower_bound(d_rs, d_rs + n_rs, iv) - d_rs - 1;
+
+        int rsidx = std::upper_bound(d_rs, d_rs + n_rs, iv) - d_rs - 1;
         idx += rsidx * mul;
-        if (idx < n_total_bins) {
+        if (idx < n_total_bins)
+        {
             d_flat_assigned_bin[iv] = idx;
             if (calc_n_per_bin) {
                 d_n_per_bin[idx]++;
