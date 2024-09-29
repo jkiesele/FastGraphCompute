@@ -1,14 +1,41 @@
+## WARNING: In development mode
 
 
+# Development guide
+Only tested on machines with Nvidia GPUs.
 
-git clone https://gitlab.etp.kit.edu/jkiesele/ml4reco_modules
+First, shell inside the container. The `.sif` file can be downloaded from the link below. I use apptainer binary which
+can be downloaded from apptainer website. You can just extract it somewhere locally and don't need admin access to
+install. I recommend this over CERN/other installed singularity as you get full control and is faster to log in to.
 
-do work some work
 
-git add <my new or changed files>
+[The container](https://uzh-my.sharepoint.com/:u:/g/personal/shahrukh_qasim_physik_uzh_ch/EbHEeOPLryFFn2N5m7xCHhABl1Hr7KrNrjibF5KB7ctzzw)
 
-git commit "my commit message"
 
-git push
+And clone the repository (or you can clone my version)
+```
+git clone https://github.com/jkiesele/ml4reco_modules.git
+cd ml4reco_modules
+```
 
-and all done
+And install
+```
+pip3 install -v --user --no-deps --no-build-isolation .
+```
+Here, the build isolation mode is important because this way, `pip` will not install dozens of packages every time. The
+installation is fairly fast so even while developing, I'd recommend simply installing the package every time you modify
+it.
+
+**Important:** go inside `test` directory (don't run from parent directory). Once inside, just run the test case:
+```
+python3 -m unittest Test_bin_by_coordinates.TestBinByCoordinates
+```
+
+Or run one specific test case:
+```
+python3 -m unittest Test_bin_by_coordinates.TestBinByCoordinates.test_large_scale_cuda
+```
+
+Enjoy development!
+
+
