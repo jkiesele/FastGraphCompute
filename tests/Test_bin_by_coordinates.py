@@ -79,7 +79,7 @@ class TestBinByCoordinates(unittest.TestCase):
             coordinates, self.row_splits, self.bin_width, self.nbins, True)
 
         # Just ensure this runs without error for a basic sanity check
-        self.assertEqual(output_assigned_bi n.size(0), 1000)
+        self.assertEqual(output_assigned_bin.size(0), 1000)
         self.assertEqual(output_flat_assigned_bin.size(0), 1000)
         self.assertTrue((output_n_per_bin.sum() <= 1000).item())  # Sum of indices may be less due to clamping to zero
 
