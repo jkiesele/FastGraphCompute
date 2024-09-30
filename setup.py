@@ -36,10 +36,11 @@ cpu_kwargs = dict(
     extra_link_args=['-s']
     )
 extensions_cpu = [
-    CppExtension('select_knn_cpu', ['extensions/select_knn_cpu.cpp'], **cpu_kwargs),
-    CppExtension('index_replacer_cpu', ['extensions/index_replacer_cpu.cpp'], **cpu_kwargs),
-    CppExtension('bin_by_coordinates_cpu', ['extensions/bin_by_coordinates_cpu.cpp'], **cpu_kwargs)  # Add this line
+    CppExtension('ml4reco_modules.extensions.select_knn_cpu', ['ml4reco_modules/extensions/select_knn_cpu.cpp'], **cpu_kwargs),
+    CppExtension('ml4reco_modules.extensions.index_replacer_cpu', ['ml4reco_modules/extensions/index_replacer_cpu.cpp'], **cpu_kwargs),
+    CppExtension('ml4reco_modules.extensions.bin_by_coordinates_cpu', ['ml4reco_modules/extensions/bin_by_coordinates_cpu.cpp'], **cpu_kwargs)  # Add this line
 ]
+
 cuda_kwargs = dict(
     include_dirs=[extensions_dir],
     extra_compile_args={'cxx': ['-O2'], 'nvcc': ['--expt-relaxed-constexpr', '-O2']},
@@ -47,18 +48,18 @@ cuda_kwargs = dict(
     )
 extensions_cuda = [
     CUDAExtension(
-        'select_knn_cuda',
-        ['extensions/select_knn_cuda.cpp', 'extensions/select_knn_cuda_kernel.cu'],
+        'ml4reco_modules.extensions.select_knn_cuda',
+        ['ml4reco_modules/extensions/select_knn_cuda.cpp', 'ml4reco_modules/extensions/select_knn_cuda_kernel.cu'],
         **cuda_kwargs
         ),
     CUDAExtension(
-        'index_replacer_cuda',
-        ['extensions/index_replacer_cuda.cpp','extensions/index_replacer_cuda_kernel.cu'],
+        'ml4reco_modules.extensions.index_replacer_cuda',
+        ['ml4reco_modules/extensions/index_replacer_cuda.cpp','ml4reco_modules/extensions/index_replacer_cuda_kernel.cu'],
         **cuda_kwargs
         ),
     CUDAExtension(
-        'bin_by_coordinates_cuda',
-        ['extensions/bin_by_coordinates_cuda.cpp', 'extensions/bin_by_coordinates_cuda_kernel.cu'],
+        'ml4reco_modules.extensions.bin_by_coordinates_cuda',
+        ['ml4reco_modules/extensions/bin_by_coordinates_cuda.cpp', 'ml4reco_modules/extensions/bin_by_coordinates_cuda_kernel.cu'],
         **cuda_kwargs
     )
     ]
@@ -84,33 +85,19 @@ print('\n---------------------\nExtensions:')
 for ext in extensions: print(repr_ext(ext))
 print('---------------------')
 
+# Number of parallel jobs, defaulting to all available CPUs if not specified
+num_jobs = os.getenv('NUM_PARALLEL_JOBS', '0')
+make_args = []
+if num_jobs != '0':
+    make_args = [f'-j{num_jobs}']
 
-# Setup call
-tests_require = ['pytest', 'pytest-cov', 'scipy']
 setup(
     name='ml4reco_modules',
-    version='1.0.0',
-    author='Lindsey Gray <Lindsey.Gray@cern.ch>, Jan Kieseler <jan.kieseler@cern.ch>, Thomas Klijnsma <thomasklijnsma@gmail.com>, Ayman Ratey',
-    author_email='Lindsey.Gray@cern.ch',
-    url='',
-    description=('PyTorch Extension Library for HGCAL Specific knn optimizations'),
-    keywords=[
-        'pytorch',
-        'knn',
-        'geometric-deep-learning',
-        'graph-neural-networks',
-        'cluster-algorithms',
-    ],
-    license='MIT',
-    python_requires='>=3.6',
-    install_requires=[],
-    setup_requires=['pytest-runner'],
-    tests_require=tests_require,
-    extras_require={'test': tests_require},
     ext_modules=extensions if not BUILD_DOCS else [],
+    packages=find_packages(),  # Automatically find packages
     cmdclass={
-        'build_ext':
-        BuildExtension.with_options(no_python_abi_suffix=True, use_ninja=False)
+        'build_ext': BuildExtension.with_options(no_python_abi_suffix=True, use_ninja=False, parallel=True, make_args=make_args)
     },
-    packages=find_packages(),
 )
+
+
