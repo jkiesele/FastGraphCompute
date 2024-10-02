@@ -38,7 +38,8 @@ cpu_kwargs = dict(
 extensions_cpu = [
     CppExtension('ml4reco_modules.extensions.select_knn_cpu', ['ml4reco_modules/extensions/select_knn_cpu.cpp'], **cpu_kwargs),
     CppExtension('ml4reco_modules.extensions.index_replacer_cpu', ['ml4reco_modules/extensions/index_replacer_cpu.cpp'], **cpu_kwargs),
-    CppExtension('ml4reco_modules.extensions.bin_by_coordinates_cpu', ['ml4reco_modules/extensions/bin_by_coordinates_cpu.cpp'], **cpu_kwargs)  # Add this line
+    CppExtension('ml4reco_modules.extensions.bin_by_coordinates_cpu', ['ml4reco_modules/extensions/bin_by_coordinates_cpu.cpp'], **cpu_kwargs),
+    CppExtension('ml4reco_modules.extensions.binned_select_knn_cpu', ['ml4reco_modules/extensions/binned_select_knn_cpu.cpp'], **cpu_kwargs) 
 ]
 
 cuda_kwargs = dict(
@@ -61,7 +62,12 @@ extensions_cuda = [
         'ml4reco_modules.extensions.bin_by_coordinates_cuda',
         ['ml4reco_modules/extensions/bin_by_coordinates_cuda.cpp', 'ml4reco_modules/extensions/bin_by_coordinates_cuda_kernel.cu'],
         **cuda_kwargs
-    )
+        ),
+    CUDAExtension(
+        'ml4reco_modules.extensions.binned_select_knn_cuda',
+        ['ml4reco_modules/extensions/binned_select_knn_cuda.cpp', 'ml4reco_modules/extensions/binned_select_knn_cuda_kernel.cu'],
+        **cuda_kwargs
+        )
     ]
 
 extensions = []
