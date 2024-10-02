@@ -47,7 +47,7 @@ __global__ void calc(
             cidx = n_bins[ic] - 1;
         }
         else if (cidx < 0) {
-            printf("Overflow warning: index %d of coordinate %d less than n bins %d\n", cidx, ic, n_bins[ic]);
+            printf("Underflow warning: index %d of coordinate %d less than n bins %d\n", cidx, ic, n_bins[ic]);
             cidx=0;
         }
         d_assigned_bin[I2D(iv, ic + 1, n_coords + 1)] = cidx;
