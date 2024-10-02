@@ -72,6 +72,7 @@ class TestBinByCoordinates(unittest.TestCase):
         self.do_simple_binning(cuda=False)
 
     def do_out_of_bounds(self, cuda=False):
+        print("Running out of bounds test. Overflow warnings here are normal!")
         # Ensure coordinates out of bounds are handled properly
         coordinates = torch.tensor([
             [-1.0, -1.0],

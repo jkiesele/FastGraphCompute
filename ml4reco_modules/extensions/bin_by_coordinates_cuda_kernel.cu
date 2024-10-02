@@ -43,11 +43,11 @@ __global__ void calc(
     for (int ic = n_coords - 1; ic >= 0; --ic) {
         int cidx = d_coords[I2D(iv, ic, n_coords)] / d_binswidth[0];
         if (cidx >= n_bins[ic]) {
-            printf("Fatal error: index %d of coordinate %d exceeds n bins %d\n", cidx, ic, n_bins[ic]);
+            printf("Overflow warning: index %d of coordinate %d exceeds n bins %d\n", cidx, ic, n_bins[ic]);
             cidx = n_bins[ic] - 1;
         }
         else if (cidx < 0) {
-            printf("Fatal error: index %d of coordinate %d less than n bins %d\n", cidx, ic, n_bins[ic]);
+            printf("Overflow warning: index %d of coordinate %d less than n bins %d\n", cidx, ic, n_bins[ic]);
             cidx=0;
         }
         d_assigned_bin[I2D(iv, ic + 1, n_coords + 1)] = cidx;

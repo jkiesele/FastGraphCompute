@@ -54,6 +54,7 @@ static void computeAssignments(
 
             d_assigned_bin[I2D(iv, 0, n_coords+1)] = rsidx;
             if(cidx < 0 || cidx >= n_bins[ic]){
+                printf("Overflow warning: index %d of coordinate %d exceeds n bins %d\n", cidx, ic, n_bins[ic]);
                 cidx = std::min(std::max(0, cidx), n_bins[ic] - 1);
             }
             d_assigned_bin[I2D(iv, ic+1, n_coords+1)] = cidx;
