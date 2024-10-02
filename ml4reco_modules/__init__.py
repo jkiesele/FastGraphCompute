@@ -10,3 +10,5 @@ __credits__ = ''
 
 # just expose the extensions to the top level, here example: bin_by_coordinates
 from .extensions.bin_by_coordinates import bin_by_coordinates
+from .extensions.index_replacer import index_replacer
+from .extensions.binned_select_knn import binned_select_knn

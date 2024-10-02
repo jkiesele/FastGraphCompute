@@ -3,11 +3,7 @@ import numpy as np
 import unittest
 import os.path as osp
 
-# Load the shared libraries
-cpu_so_file = osp.join(osp.dirname(osp.realpath(__file__)), 'index_replacer_cpu.so')
-torch.ops.load_library(cpu_so_file)
-cuda_so_file = osp.join(osp.dirname(osp.realpath(__file__)), 'index_replacer_cuda.so')
-torch.ops.load_library(cuda_so_file)
+from ml4reco_modules import index_replacer
 
 class TestIndexReplacer(unittest.TestCase):
 
@@ -15,21 +11,21 @@ class TestIndexReplacer(unittest.TestCase):
     def test_basic_index_replacer_cpu(self):
         to_be_replaced = torch.tensor([0, 1, 2, 3, 4, 5], dtype=torch.int32)
         replacements = torch.tensor([10, 11, 12, 13, 14, 15], dtype=torch.int32)
-        replaced = torch.ops.index_replacer_cpu.index_replacer_cpu(to_be_replaced, replacements)
+        replaced = index_replacer(to_be_replaced, replacements)
         expected_replaced = torch.tensor([10, 11, 12, 13, 14, 15], dtype=torch.int32)
         self.assertTrue(torch.equal(replaced, expected_replaced), "Test basic index replacer CPU failed")
 
     def test_index_replacer_out_of_range_cpu(self):
         to_be_replaced = torch.tensor([0, 33, 2, 3, 17, 5, 6], dtype=torch.int32)  # 33 and 17 are out of range
         replacements = torch.tensor([10, 1, 12, 4, 2, 15], dtype=torch.int32)
-        replaced = torch.ops.index_replacer_cpu.index_replacer_cpu(to_be_replaced, replacements)
+        replaced = index_replacer(to_be_replaced, replacements)
         expected_replaced = torch.tensor([10, 33, 12, 4, 17, 15, 6], dtype=torch.int32)  # out-of-range should be unchanged
         self.assertTrue(torch.equal(replaced, expected_replaced), "Test index out of range CPU failed")
 
     def test_large_index_replacer_cpu(self):
         to_be_replaced = torch.tensor(np.random.randint(0, 10000, 10000), dtype=torch.int32)
         replacements = torch.tensor(np.random.randint(0, 10000, 10000), dtype=torch.int32)
-        replaced = torch.ops.index_replacer_cpu.index_replacer_cpu(to_be_replaced, replacements)
+        replaced = index_replacer(to_be_replaced, replacements)
         for i in range(10000):
             if to_be_replaced[i] < replacements.size(0):
                 self.assertEqual(replaced[i].item(), replacements[to_be_replaced[i]].item(),
@@ -44,7 +40,7 @@ class TestIndexReplacer(unittest.TestCase):
         replacements = torch.tensor([10, 11, 12, 13, 14, 15], dtype=torch.int32).cuda()
 
         # Call the CUDA function via torch.ops
-        replaced = torch.ops.index_replacer_cuda.index_replacer_cuda(to_be_replaced, replacements)
+        replaced = index_replacer(to_be_replaced, replacements)
 
         expected_replaced = torch.tensor([10, 11, 12, 13, 14, 15], dtype=torch.int32).cuda()
         self.assertTrue(torch.equal(replaced, expected_replaced), "Test basic index replacer CUDA failed")
@@ -54,7 +50,7 @@ class TestIndexReplacer(unittest.TestCase):
         replacements = torch.tensor([10, 11, 12, 13, 14, 15], dtype=torch.int32).cuda()
 
         # Call the CUDA function via torch.ops
-        replaced = torch.ops.index_replacer_cuda.index_replacer_cuda(to_be_replaced, replacements)
+        replaced = index_replacer(to_be_replaced, replacements)
 
         expected_replaced = torch.tensor([10, 33, 12, 13, 17, 15, 6], dtype=torch.int32).cuda()  # out-of-range should be unchanged
         self.assertTrue(torch.equal(replaced, expected_replaced), "Test index out of range CUDA failed")
@@ -64,7 +60,7 @@ class TestIndexReplacer(unittest.TestCase):
         replacements = torch.tensor(np.random.randint(0, 10000, 10000), dtype=torch.int32).cuda()
 
         # Call the CUDA function via torch.ops
-        replaced = torch.ops.index_replacer_cuda.index_replacer_cuda(to_be_replaced, replacements)
+        replaced = index_replacer(to_be_replaced, replacements)
 
         for i in range(10000):
             if to_be_replaced[i] < replacements.size(0):
