@@ -11,13 +11,14 @@ void index_replacer_cpu_kernel(
     const int n_to_be_replaced,
     const int n_replacements
 ) {
-    for (int i = 0; i < n_to_be_replaced; ++i) {
-        int ridx = to_be_replaced[i];
-        if (ridx < 0 || ridx >= n_replacements) {
+    for(int i=0;i<n_to_be_replaced;i++){
+        const int ridx = to_be_replaced[i];
+        if(ridx<0){
             replaced[i] = ridx;
-            if (ridx >= n_replacements) {
-                std::cout << "IndexReplacer: index out of range\n";
-            }
+            continue;
+        }
+        if(ridx>=n_replacements){
+            printf("index_replacer_cpu: index out of range\n");
             continue;
         }
         replaced[i] = replacements[ridx];
@@ -36,14 +37,10 @@ torch::Tensor index_replacer_cpu(
     auto n_to_be_replaced = to_be_replaced.numel();
     auto n_replacements = replacements.size(0);
 
-    auto to_be_replaced_ptr = to_be_replaced.data_ptr<int>();
-    auto replacements_ptr = replacements.data_ptr<int>();
-    auto replaced_ptr = replaced.data_ptr<int>();
-
     index_replacer_cpu_kernel(
-        to_be_replaced_ptr,
-        replacements_ptr,
-        replaced_ptr,
+        to_be_replaced.data_ptr<int>(),
+        replacements.data_ptr<int>(),
+        replaced.data_ptr<int>(),
         n_to_be_replaced,
         n_replacements
     );

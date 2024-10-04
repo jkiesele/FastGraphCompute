@@ -50,6 +50,12 @@ def bin_by_coordinates(coordinates, row_splits, bin_width=None, n_bins=None, cal
     # Calculate bin_width or n_bins
     if bin_width is None:
         assert n_bins is not None, "Either bin_width or n_bins must be provided."
+        # check if n_bins is a tensor if not make it one
+        if not isinstance(n_bins, torch.Tensor):
+            n_bins = torch.tensor(n_bins, dtype=torch.int32)
+        #make sure it has the coordinate dimension
+        if n_bins.dim() == 0:
+            n_bins = n_bins.repeat(coordinates.shape[1])
         bin_width = dmax_coords / n_bins.to(dtype=torch.float32)
         bin_width = torch.max(bin_width).unsqueeze(-1)  # Ensure uniform bin width across dimensions
     elif n_bins is None:
