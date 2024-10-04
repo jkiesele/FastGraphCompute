@@ -63,6 +63,11 @@ static void select_knn_kernel_cpu(
     T n_bboundaries,
     bool use_direction
 ) {
+
+    T n_bins_total=1;
+    for (T b=0;b < n_bin_dim; b++)
+        n_bins_total = n_bins_total * d_n_bins[b];
+
     for (T i_v = 0; i_v < n_vert; i_v++) {
         if (use_direction && (d_direction[i_v] == 0 || d_direction[i_v] == 2))
             continue;
@@ -85,7 +90,7 @@ static void select_knn_kernel_cpu(
                 if (idx < 0)
                     break;
 
-                idx += (d_bin_idx[i_v] / (d_n_bins[0] * d_n_bins[1]));
+                idx += d_bin_idx[i_v] / n_bins_total;
 
                 if (idx >= n_bboundaries - 1)
                     continue;
