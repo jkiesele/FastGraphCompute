@@ -4,8 +4,7 @@ import unittest
 
 from ml4reco_modules import binned_select_knn
 
-class TestBinByCoordinates(unittest.TestCase):
-
+class TestBinnedKnn(unittest.TestCase):
     def knn_pytorch_baseline(self, K, coordinates):
         """
         Simple KNN implementation using PyTorch.
@@ -35,8 +34,10 @@ class TestBinByCoordinates(unittest.TestCase):
         # Parameters for the test
         n_points = 10000  # Number of points
         n_dims = 3      # Number of dimensions
-        K = 50           # Number of nearest neighbors to find
+        K = 100           # Number of nearest neighbors to find
         n_bins = 10      # Number of bins across each dimension
+
+
 
         # Generate random coordinates (3D points)
         coordinates = torch.rand((n_points, n_dims), dtype=torch.float32, device=device)
@@ -89,7 +90,6 @@ class TestBinByCoordinates(unittest.TestCase):
     
     @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
     def test_large_binned_select_knn_cuda(self):
-        return
         self.do_large_test(device='cuda')
 
 

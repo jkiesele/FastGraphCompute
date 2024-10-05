@@ -21,7 +21,7 @@ def _binned_select_knn(
     direction = None):
 
     if coordinates.device.type == 'cuda':
-        op = torch.ops.binned_select_knn_cuda.binned_select_knn
+        op = torch.ops.binned_select_knn_cuda.binned_select_knn_cuda
     else:
         op = torch.ops.binned_select_knn_cpu.binned_select_knn_cpu
 
@@ -38,8 +38,10 @@ def _binned_select_knn(
     assert_same_dtype(bin_idx, dim_bin_idx, bin_boundaries, n_bins, direction_input)
     assert_same_dtype(coordinates, bin_width)
 
-    return op(coordinates, bin_idx, dim_bin_idx, bin_boundaries, n_bins, bin_width, 
+    idx, dist = op(coordinates, bin_idx, dim_bin_idx, bin_boundaries, n_bins, bin_width,
               direction_input, torch_compatible_indices, direction is not None, K)
+
+    return idx, dist
 
 
 def binned_select_knn(K: int, 
@@ -100,7 +102,7 @@ def binned_select_knn(K: int,
         direction = direction[sorting]
 
     # Create bin boundaries (cumulative sum of number of points per bin)
-    bin_boundaries = torch.cat([torch.zeros(1, dtype=torch.int32), nper], dim=0)
+    bin_boundaries = torch.cat([torch.zeros(1, dtype=torch.int32).to(coords.device), nper], dim=0)
     bin_boundaries = torch.cumsum(bin_boundaries, dim=0, dtype=torch.int32)
 
     # Ensure the bin boundaries are valid
@@ -124,7 +126,6 @@ def binned_select_knn(K: int,
     print("idx: ", idx)
     print("dist: ", dist)
 
- 
     idx = index_replacer(idx, sorting)  # Placeholder: handle index sorting replacement
     #cast sorting back to int64 for scatter
     sorting = sorting.to(dtype=torch.int64) 
