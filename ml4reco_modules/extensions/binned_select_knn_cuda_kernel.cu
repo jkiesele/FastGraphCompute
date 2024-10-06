@@ -229,8 +229,8 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
     const auto n_bboundaries = bin_boundaries.size(0);
     const auto n_bin_dims = n_bins.size(0);
 
-    auto options_int = torch::TensorOptions().dtype(torch::kInt32);
-    auto options_float = torch::TensorOptions().dtype(torch::kFloat32);
+    auto options_int = torch::TensorOptions().dtype(torch::kInt32).device(coordinates.device());
+    auto options_float = torch::TensorOptions().dtype(torch::kFloat32).device(coordinates.device());
 
     torch::Tensor indices = torch::empty({n_vert, K}, options_int);
     torch::Tensor distances = torch::empty({n_vert, K}, options_float);

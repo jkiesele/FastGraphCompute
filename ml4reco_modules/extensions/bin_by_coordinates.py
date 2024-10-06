@@ -52,7 +52,7 @@ def bin_by_coordinates(coordinates, row_splits, bin_width=None, n_bins=None, cal
         assert n_bins is not None, "Either bin_width or n_bins must be provided."
         # check if n_bins is a tensor if not make it one
         if not isinstance(n_bins, torch.Tensor):
-            n_bins = torch.tensor(n_bins, dtype=torch.int32)
+            n_bins = torch.tensor(n_bins, dtype=torch.int32).to(coordinates.device)
         #make sure it has the coordinate dimension
         if n_bins.dim() == 0:
             n_bins = n_bins.repeat(coordinates.shape[1])
