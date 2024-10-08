@@ -95,7 +95,30 @@ torch::Tensor binned_select_knn_grad_cpu(
     const auto K = indices.size(1);
 
     auto options_float = torch::TensorOptions().dtype(torch::kFloat32);
-    torch::Tensor grad_coords = torch::empty({n_vert, n_coords}, options_float);
+    torch::Tensor grad_coords = torch::zeros({n_vert, n_coords}, options_float);
+
+    //make sure coordinates, distances, and grad_distances are contiguous and float32
+    grad_distances = grad_distances.contiguous();
+    indices = indices.contiguous();
+    distances = distances.contiguous();
+    coordinates = coordinates.contiguous();
+
+    if (indices.scalar_type() != torch::kInt32 && indices.scalar_type() != torch::kInt64) {
+        throw std::invalid_argument("Unsupported tensor type for bin_idx.");
+    }
+
+    //make sure the rest is float32
+    if (grad_distances.scalar_type() != torch::kFloat32) {
+        throw std::invalid_argument("Unsupported tensor type for grad_distances.");
+    }
+
+    if (distances.scalar_type() != torch::kFloat32) {
+        throw std::invalid_argument("Unsupported tensor type for distances.");
+    }
+
+    if (coordinates.scalar_type() != torch::kFloat32) {
+        throw std::invalid_argument("Unsupported tensor type for coordinates.");
+    }
 
     if (indices.scalar_type() == torch::kInt32) {
         select_knn_grad_selfloop_kernel<int32_t>(
