@@ -4,7 +4,7 @@ import unittest
 
 from ml4reco_modules import binned_select_knn
 
-class TestBinnedKnn(unittest.TestCase):
+class TestBinnedSelectKnn(unittest.TestCase):
     def knn_pytorch_baseline(self, K, coordinates):
         """
         Simple KNN implementation using PyTorch.
