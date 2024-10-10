@@ -49,7 +49,7 @@ torch::Tensor select_with_default_cpu(
 
     AT_DISPATCH_INTEGRAL_TYPES(indices.scalar_type(), "select_with_default_cpu_kernel", ([&] {
     using index_t = scalar_t;  // The type of indices (int32 or int64)
-    
+
         // Manually dispatch for both floating and integral types
         AT_DISPATCH_FLOATING_TYPES_AND(torch::kInt32, tensor.scalar_type(), "select_with_default_cpu_kernel", ([&] {
             // You can add more types like torch::kInt64 if necessary
@@ -74,6 +74,6 @@ torch::Tensor select_with_default_cpu(
 }
 
 // Register the function with the repository convention
-TORCH_LIBRARY(select_helper_cpu, m) {
+TORCH_LIBRARY(select_with_default_cpu, m) {
     m.def("select_with_default_cpu", &select_with_default_cpu);
 }

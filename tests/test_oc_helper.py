@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import unittest
 import torch
-from ml4reco_modules import oc_helper_matrices
+from ml4reco_modules import oc_helper_matrices, select_with_default
 
 class TestOcHelper(unittest.TestCase):
 
@@ -124,5 +124,28 @@ class TestOcHelper(unittest.TestCase):
     def test_oc_helper_matrices_cuda(self):
         self.run_matrix_test('cuda')
 
+
+
 if __name__ == '__main__':
-    unittest.main()
+    # Example input data
+    asso_indices = torch.tensor([3, 7,  3, -1, -1, 3, 7, 1, 1, 0, 0, -1, 1, 1, -1,
+                                 3, -1, 19, 3, 2, -1, 19], dtype=torch.int32)
+        
+    row_splits = torch.tensor([0, 15, len(asso_indices)], dtype=torch.int32)
+
+    # Assuming you have a function to create matrices M, M_not
+    M, M_not = oc_helper_matrices(asso_indices, row_splits)
+    print("M:", M)
+    print("M_not:", M_not)
+
+    # Create a sample 2D tensor (V x F)
+    features = torch.arange(5*len(asso_indices)).view(len(asso_indices), 5) # Example tensor with shape (len(asso_indices), 5)
+    #cast to float32
+    features = features.to(torch.float32)
+
+    # Select with default value of 0
+    sel = select_with_default(M, features, -100)  # Add one dimension to asso_indices
+    print("sel:", sel)
+    sel = select_with_default(M, asso_indices.unsqueeze(-1)# add one dim
+                              , -100)  # Add one dimension to asso_indices
+    print("sel tidx:", sel) #this should close, so only same indices per row or -1s
