@@ -6,6 +6,9 @@ import os.path as osp
 torch.ops.load_library(osp.join(osp.dirname(osp.realpath(ml4reco_modules.extensions.__file__)), 'oc_helper_cpu.so'))
 torch.ops.load_library(osp.join(osp.dirname(osp.realpath(ml4reco_modules.extensions.__file__)), 'oc_helper_cuda.so'))
 
+torch.ops.load_library(osp.join(osp.dirname(osp.realpath(ml4reco_modules.extensions.__file__)), 'select_with_default_cpu.so'))
+torch.ops.load_library(osp.join(osp.dirname(osp.realpath(ml4reco_modules.extensions.__file__)), 'select_with_default_cuda.so'))
+
 
 def _helper_inputs(truth_indices, row_splits, filter_negative: bool = True):
     """
@@ -149,11 +152,13 @@ def oc_helper_matrices(
                       Row split boundaries are not crossed.
                       The dimensionality is (N_objects, N_max_points_per_object).
                       The matrix is not sorted by row splits anymore.
+                      Can be used in conjunction with select_with_default to select the points.
         torch.Tensor: The M_not matrix (either calculated or filled with -1s).
                       It contains indices to select all points that do *not* belong to the object.
                       Row split boundaries are not crossed.
                       The dimensionality is (N_objects, N_max_points_per_row_split).
                       The matrix is not sorted by row splits anymore.
+                      Can be used in conjunction with select_with_default to select the points.
     """
 
     # Sanity check: ensure both tensors are on the same device
@@ -191,3 +196,18 @@ def oc_helper_matrices(
         calc_m_not)
     
     return M, M_not
+
+def select_with_default(indices: torch.Tensor,
+                        tensor: torch.Tensor,
+                        default):
+    """
+    This function selects the values from a tensor based on the given indices,
+    e.g. the M or M_not matrix from oc_helper_matrices.
+    For -1 entries in M or M_not, it uses the default value.
+    """
+    if tensor.device.type == 'cuda':
+        op = torch.ops.select_with_default_cuda.select_with_default_cuda
+    else:
+        op = torch.ops.select_with_default_cpu.select_with_default_cpu
+
+    return op(indices, tensor, default)
