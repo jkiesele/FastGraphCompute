@@ -32,6 +32,18 @@ class TestOcHelper(unittest.TestCase):
 
         # now let's call the function
         M, M_not = oc_helper_matrices(asso_indices, row_splits)
+        # sort M in the second dimension using masked M
+        M_masked = M.clone()
+        M_masked[M_masked == -1] = 1000
+        M = torch.gather(M, 1, M_masked.argsort(dim=1))
+
+        #do the same to M_not
+        M_not_masked = M_not.clone()
+        M_not_masked[M_not_masked == -1] = 1000
+        M_not = torch.gather(M_not, 1, M_not_masked.argsort(dim=1))
+
+        # this is just for comparison. The sorting is not important for the functionality
+
 
         # check if device is correct
         self.assertTrue(M.device.type == device, "Test oc_helper_matrices M device failed: device wrong, got "+M.device.type+" but expected "+device)

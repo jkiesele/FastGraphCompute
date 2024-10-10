@@ -75,6 +75,8 @@ def _helper_inputs(truth_indices, row_splits, filter_negative: bool = True):
         ```
 
     Notes:
+        - Beware: the CPU and CUDA versions do not give the exact identical output in terms of index ordering, but give the same output
+          in terms of functionality.
         - Ensure that `row_splits` starts with 0 and ends with the length of `truth_indices`, as the function assumes 
           the first and last values in `row_splits` to be boundaries for splitting.
         - If `truth_indices` contains negative values and `filter_negative=True`, those values will not be included 

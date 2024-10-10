@@ -32,6 +32,7 @@ static void calc_m(
             bool calc_m_not) {
 
         int k = blockIdx.x * blockDim.x + threadIdx.x;
+        int tid = threadIdx.x; //for coallesced memory access
         if(k >= n_unique)
             return;
 
@@ -45,23 +46,42 @@ static void calc_m(
             #endif
             end_vertex = n_vert;
         }
+        //synch threads here, now everything is same for all threads
+        __syncthreads();
         // Fill M
         int fill_counter = 0;
-        for(int i_v = start_vertex; i_v < end_vertex; i_v++ ){
+        for(int i_v = start_vertex + tid; i_v < end_vertex; i_v++ ){
             if(asso_idx[i_v] == uqidx){
                 M[I2D(k, fill_counter, n_maxuq)] = i_v;
                 fill_counter++;
             }
         }
+        //fill rest, might diverge but that's ok
+        for(int i_v = start_vertex; i_v < start_vertex + tid; i_v++ ){
+            if(i_v < end_vertex && asso_idx[i_v] == uqidx){
+                M[I2D(k, fill_counter, n_maxuq)] = i_v;
+                fill_counter++;
+            }
+        }
+
         // Pad with -1s
         for(; fill_counter < n_maxuq; fill_counter++){
             M[I2D(k, fill_counter, n_maxuq)] = -1;
         }
         // Fill M_not
         if(calc_m_not){
+            //synch threads here, now everything is same for all threads
+            __syncthreads();
             fill_counter = 0;
-            for(int i_v = start_vertex; i_v < end_vertex; i_v++ ){
+            for(int i_v = start_vertex + tid; i_v < end_vertex; i_v++ ){
                 if (asso_idx[i_v] != uqidx){
+                    M_not[I2D(k, fill_counter, n_maxrs)] = i_v;
+                    fill_counter++;
+                }
+            }
+            //fill rest, might diverge but that's ok
+            for(int i_v = start_vertex; i_v < start_vertex + tid; i_v++ ){
+                if (i_v < end_vertex && asso_idx[i_v] != uqidx){
                     M_not[I2D(k, fill_counter, n_maxrs)] = i_v;
                     fill_counter++;
                 }
