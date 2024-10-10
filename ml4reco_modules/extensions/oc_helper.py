@@ -4,7 +4,7 @@ import os.path as osp
 
 #load the lib
 torch.ops.load_library(osp.join(osp.dirname(osp.realpath(ml4reco_modules.extensions.__file__)), 'oc_helper_cpu.so'))
-#torch.ops.load_library(osp.join(osp.dirname(osp.realpath(ml4reco_modules.extensions.__file__)), 'oc_helper_cuda.so'))
+torch.ops.load_library(osp.join(osp.dirname(osp.realpath(ml4reco_modules.extensions.__file__)), 'oc_helper_cuda.so'))
 
 
 def _helper_inputs(truth_indices, row_splits, filter_negative: bool = True):
@@ -87,7 +87,7 @@ def _helper_inputs(truth_indices, row_splits, filter_negative: bool = True):
     max_length = torch.max(lengths)
     
     # Generate row IDs for each element in truth_indices
-    row_ids = torch.repeat_interleave(torch.arange(len(lengths)), lengths)
+    row_ids = torch.repeat_interleave(torch.arange(len(lengths)).to(truth_indices.device), lengths)
     
     # Get unique truth indices and their inverse mapping
     unique_vals, inverse_indices = torch.unique(truth_indices, return_inverse=True)
@@ -143,8 +143,15 @@ def oc_helper_matrices(
                            it will contain -1s.
 
     Returns:
-        torch.Tensor: The M matrix.
+        torch.Tensor: The M matrix, as indices such that the point properties can be selected with select_with_default.
+                      Row split boundaries are not crossed.
+                      The dimensionality is (N_objects, N_max_points_per_object).
+                      The matrix is not sorted by row splits anymore.
         torch.Tensor: The M_not matrix (either calculated or filled with -1s).
+                      It contains indices to select all points that do *not* belong to the object.
+                      Row split boundaries are not crossed.
+                      The dimensionality is (N_objects, N_max_points_per_row_split).
+                      The matrix is not sorted by row splits anymore.
     """
 
     # Sanity check: ensure both tensors are on the same device

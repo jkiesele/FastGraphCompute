@@ -122,6 +122,8 @@ torch::Tensor binned_select_knn_grad_cuda_fn(
             K,
             n_coords
         );
+
+        cudaDeviceSynchronize();
     
         select_knn_grad_neighloop_kernel<int32_t><<<gb.grid(),gb.block()>>>(
             grad_distances.data_ptr<float>(),
@@ -145,6 +147,8 @@ torch::Tensor binned_select_knn_grad_cuda_fn(
             K,
             n_coords
         );
+
+        cudaDeviceSynchronize();
     
         select_knn_grad_neighloop_kernel<int64_t><<<gb.grid(),gb.block()>>>(
             grad_distances.data_ptr<float>(),

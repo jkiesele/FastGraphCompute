@@ -34,12 +34,12 @@ class TestOcHelper(unittest.TestCase):
         M, M_not = oc_helper_matrices(asso_indices, row_splits)
 
         # check if device is correct
-        self.assertTrue(M.device.type == device, "Test oc_helper_matrices device failed: device wrong")
-        self.assertTrue(M_not.device.type == device, "Test oc_helper_matrices device failed: device wrong")
+        self.assertTrue(M.device.type == device, "Test oc_helper_matrices M device failed: device wrong, got "+M.device.type+" but expected "+device)
+        self.assertTrue(M_not.device.type == device, "Test oc_helper_matrices M_not device failed: device wrong, got "+M_not.device.type+" but expected "+device)
 
         # check if dtype is same as asso_indices
-        self.assertTrue(M.dtype == asso_indices.dtype, "Test oc_helper_matrices dtype failed: dtype wrong")
-        self.assertTrue(M_not.dtype == asso_indices.dtype, "Test oc_helper_matrices dtype failed: dtype wrong")
+        self.assertTrue(M.dtype == asso_indices.dtype, "Test oc_helper_matrices M dtype failed: dtype wrong, got "+str(M.dtype)+" but expected "+str(asso_indices.dtype))
+        self.assertTrue(M_not.dtype == asso_indices.dtype, "Test oc_helper_matrices M_not dtype failed: dtype wrong, got "+str(M_not.dtype)+" but expected "+str(asso_indices.dtype))
 
         #check if the shape is expected: M: 7 x 4, M_not: 7 x 14
         self.assertTrue(M.shape == (7, 4), "Test oc_helper_matrices shape failed: shape wrong")
@@ -107,6 +107,10 @@ class TestOcHelper(unittest.TestCase):
 
     def test_oc_helper_matrices_cpu(self):
         self.run_matrix_test('cpu')
+
+    @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
+    def test_oc_helper_matrices_cuda(self):
+        self.run_matrix_test('cuda')
 
 if __name__ == '__main__':
     unittest.main()

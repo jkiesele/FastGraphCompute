@@ -115,6 +115,8 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> bin_by_coordinates_cuda_
             n_total_bins);
     }));
 
+    cudaDeviceSynchronize();
+
     // Calculate bin assignments
     num_blocks = (n_vert + block_size - 1) / block_size;
     AT_DISPATCH_FLOATING_TYPES(coords.type(), "calc", ([&] {
