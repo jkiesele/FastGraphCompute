@@ -176,11 +176,11 @@ def oc_helper_matrices(
     max_n_unique_over_splits = max_n_unique_over_splits.unsqueeze(0)
     max_n_in_splits = max_n_in_splits.unsqueeze(0)
 
-    # sort by unique_rs_asso to maintain row split order - not necessary but easier to debug
+    # sort by unique_rs_asso to maintain row split order - not necessary but easier to debug and better for coalesced memory access
     sorted_indices = unique_rs_asso.argsort()
     unique_idxs = unique_idxs[sorted_indices]
     unique_rs_asso = unique_rs_asso[sorted_indices]
-    
+
 
     '''
      torch::Tensor asso_idx,
