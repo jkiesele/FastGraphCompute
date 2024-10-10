@@ -172,6 +172,14 @@ class TestOcHelper(unittest.TestCase):
         ok = ok | (sel == -100)
         self.assertTrue(torch.all(ok).item(), "Test select_with_default large scale failed: data wrong")
 
+        #now test with more than 1 dimension by repeating asso_indices.unsqueeze(-1) 10 times in the last dim
+        r_asso_indices = asso_indices.unsqueeze(-1).repeat(1, 10)
+        sel = select_with_default(M, r_asso_indices, -100)
+        #now every row in sel should contain the same value as M[:,0] or -100, test
+        ok = sel == sel[:,0:1]
+        ok = ok | (sel == -100)
+        self.assertTrue(torch.all(ok).item(), "Test select_with_default large scale multi-dim failed: data wrong")
+
 
     def test_select_with_default_cpu(self):
         self.run_select_with_default_test('cpu')
