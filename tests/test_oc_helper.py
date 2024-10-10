@@ -124,28 +124,66 @@ class TestOcHelper(unittest.TestCase):
     def test_oc_helper_matrices_cuda(self):
         self.run_matrix_test('cuda')
 
+    def run_select_with_default_test(self, device):
+        #create some association indices, repeating the same values a few times and also adding some -1s
+                                    # 0  1   2   3   4  5   6  7  8   9  10  11  12  13  14
+        asso_indices = torch.tensor([ 3, 7,  3, -1, -1, 3,  7, 1, 1,  0, 0, -1,  1,  1,  -1,
+                                    # 15 16  17  18  19 20  21...
+                                      3, -1, 19, 3,  2, -1, 19], dtype=torch.int32, device=device)
+        
+        row_splits = torch.tensor([0, 15, len(asso_indices)], dtype=torch.int32, device=device)
+        
+        M, M_not = oc_helper_matrices(asso_indices, row_splits)
+
+        #self consistency test
+        sel = select_with_default(M, asso_indices.unsqueeze(-1)# add one dim
+                              , -100)  # Add one dimension to asso_indices
+        #check if device is correct
+        self.assertTrue(sel.device.type == device, "Test select_with_default self consistency failed: device wrong, got "+sel.device.type+" but expected "+device)
+
+        # check if dtype is same as asso_indices
+        self.assertTrue(sel.dtype == asso_indices.dtype, "Test select_with_default self consistency failed: dtype wrong, got "+str(sel.dtype)+" but expected "+str(asso_indices.dtype))
+
+        #now every row in sel should contain the same value as M[:,0] or -100, test
+        ok = sel == sel[:,0:1] 
+        ok = ok | (sel == -100)
+        self.assertTrue(torch.all(ok).item(), "Test select_with_default self consistency failed: data wrong")
+
+        # now do the same but casting to float32
+        f_asso_indices = asso_indices.float()
+        sel = select_with_default(M, f_asso_indices.unsqueeze(-1)# add one dim
+                              , -100)
+        #check if data type is correct
+        self.assertTrue(sel.dtype == f_asso_indices.dtype, "Test select_with_default self consistency failed: dtype wrong, got "+str(sel.dtype)+" but expected "+str(f_asso_indices.dtype))
+        
+        #now every row in sel should contain the same value as M[:,0] or -100, test
+        ok = sel == sel[:,0:1]
+        ok = ok | (sel == -100.)#now a float
+        self.assertTrue(torch.all(ok).item(), "Test select_with_default self consistency failed for float: data wrong")
+
+        # now to a large scale test
+        # create some random indices
+        asso_indices = torch.randint(0, 1000, (100000,), dtype=torch.int32, device=device)-1 # -1 to have some -1s
+        row_splits = torch.tensor([0, len(asso_indices)], dtype=torch.int32, device=device) #but take one row split only
+        M, M_not = oc_helper_matrices(asso_indices, row_splits)
+        sel = select_with_default(M, asso_indices.unsqueeze(-1), -100)
+        #now every row in sel should contain the same value as M[:,0] or -100, test
+        ok = sel == sel[:,0:1]
+        ok = ok | (sel == -100)
+        self.assertTrue(torch.all(ok).item(), "Test select_with_default large scale failed: data wrong")
+
+
+    def test_select_with_default_cpu(self):
+        self.run_select_with_default_test('cpu')
+
+    @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
+    def test_select_with_default_cuda(self):
+        self.run_select_with_default_test('cuda')
+
+
+
+
 
 
 if __name__ == '__main__':
-    # Example input data
-    asso_indices = torch.tensor([3, 7,  3, -1, -1, 3, 7, 1, 1, 0, 0, -1, 1, 1, -1,
-                                 3, -1, 19, 3, 2, -1, 19], dtype=torch.int32)
-        
-    row_splits = torch.tensor([0, 15, len(asso_indices)], dtype=torch.int32)
-
-    # Assuming you have a function to create matrices M, M_not
-    M, M_not = oc_helper_matrices(asso_indices, row_splits)
-    print("M:", M)
-    print("M_not:", M_not)
-
-    # Create a sample 2D tensor (V x F)
-    features = torch.arange(5*len(asso_indices)).view(len(asso_indices), 5) # Example tensor with shape (len(asso_indices), 5)
-    #cast to float32
-    features = features.to(torch.float32)
-
-    # Select with default value of 0
-    sel = select_with_default(M, features, -100)  # Add one dimension to asso_indices
-    print("sel:", sel)
-    sel = select_with_default(M, asso_indices.unsqueeze(-1)# add one dim
-                              , -100)  # Add one dimension to asso_indices
-    print("sel tidx:", sel) #this should close, so only same indices per row or -1s
+    unittest.main()
