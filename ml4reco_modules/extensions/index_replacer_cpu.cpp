@@ -18,7 +18,7 @@ void index_replacer_cpu_kernel(
             continue;
         }
         if(ridx>=n_replacements){
-            printf("index_replacer_cpu: index out of range\n");
+            replaced[i] = replacements[i];
             continue;
         }
         replaced[i] = replacements[ridx];

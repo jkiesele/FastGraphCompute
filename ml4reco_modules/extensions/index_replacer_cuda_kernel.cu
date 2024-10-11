@@ -15,12 +15,14 @@ __global__ void index_replacer_kernel(
     if (i >= n_to_be_replaced) return;
 
     const int ridx = to_be_replaced[i];
-    if (ridx < 0 || ridx >= n_replacements) {
-        // Out of range indices should remain unchanged
-        replaced[i] = to_be_replaced[i];
-    } else {
-        replaced[i] = replacements[ridx];
+    if(ridx<0){
+        replaced[i] = ridx;
     }
+    else if(ridx>=n_replacements){
+        replaced[i] = replacements[i];//out of range
+    }
+    else
+        replaced[i] = replacements[ridx];
 }
 
 torch::Tensor index_replacer_cuda_fn(

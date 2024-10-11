@@ -239,7 +239,9 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
     grid_and_block gb(n_vert,512);
 
     setDefaults<<<gb_set_def.grid(),gb_set_def.block()>>>(indices.data_ptr<int32_t>(), distances.data_ptr<float>(), tf_compat, n_vert, K);
-
+    
+    cudaDeviceSynchronize();
+    
     if (bin_idx.scalar_type() == torch::kInt32) {
 
         if (n_bin_dims == 2)
