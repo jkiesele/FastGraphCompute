@@ -14,6 +14,8 @@ jkiesele
 #include <cuda_runtime.h>
 #include "cuda_helpers.h"
 
+#define DEBUG 1
+
 template <typename T>
 __global__
 static void calc_m(
@@ -41,10 +43,13 @@ static void calc_m(
         int start_vertex = rs[uqidx_i_rs];
         int end_vertex = rs[uqidx_i_rs+1];
         if(end_vertex > n_vert){
-            #ifdef DEBUG
-            printf("Warning: end_vertex %d is larger than n_vert %d, setting end_vertex to n_vert\n", end_vertex, n_vert);
-            #endif
+            printf("Error: end_vertex %d is larger than n_vert %d, setting end_vertex to n_vert\n", end_vertex, n_vert);
             end_vertex = n_vert;
+        }
+        //sanity check: end_vertex - start_vertex should be smaller or equal to n_maxrs
+        if(end_vertex - start_vertex > n_maxrs){
+            printf("Error: end_vertex - start_vertex %d is larger than n_maxrs %d, setting end_vertex to start_vertex + n_maxrs\n", end_vertex - start_vertex, n_maxrs);
+            end_vertex = start_vertex + n_maxrs;
         }
         //synch threads here, now everything is same for all threads
         __syncthreads();
@@ -52,21 +57,31 @@ static void calc_m(
         int fill_counter = 0;
         for(int i_v = start_vertex + tid; i_v < end_vertex; i_v++ ){
             if(asso_idx[i_v] == uqidx){
-                M[I2D(k, fill_counter, n_maxuq)] = i_v;
+                M[I2D(fill_counter, k, n_unique)] = i_v;
                 fill_counter++;
+                #ifdef DEBUG
+                if(fill_counter > n_maxuq){
+                    printf("Error: fill_counter %d is larger than n_maxuq in first M loop %d\n", fill_counter, n_maxuq);
+                }
+                #endif
             }
         }
         //fill rest, might diverge but that's ok
         for(int i_v = start_vertex; i_v < start_vertex + tid; i_v++ ){
             if(i_v < end_vertex && asso_idx[i_v] == uqidx){
-                M[I2D(k, fill_counter, n_maxuq)] = i_v;
+                M[I2D(fill_counter, k, n_unique)] = i_v;
                 fill_counter++;
+                #ifdef DEBUG
+                if(fill_counter > n_maxuq){
+                    printf("Error: fill_counter %d is larger than n_maxuq in second M loop %d\n", fill_counter, n_maxuq);
+                }
+                #endif
             }
         }
 
         // Pad with -1s
         for(; fill_counter < n_maxuq; fill_counter++){
-            M[I2D(k, fill_counter, n_maxuq)] = -1;
+            M[I2D(fill_counter, k, n_unique)] = -1;
         }
         // Fill M_not
         if(calc_m_not){
@@ -75,21 +90,32 @@ static void calc_m(
             fill_counter = 0;
             for(int i_v = start_vertex + tid; i_v < end_vertex; i_v++ ){
                 if (asso_idx[i_v] != uqidx){
-                    M_not[I2D(k, fill_counter, n_maxrs)] = i_v;
+                    M_not[I2D(fill_counter, k, n_unique)] = i_v;
                     fill_counter++;
+                    #ifdef DEBUG
+                    if(fill_counter > n_maxrs){
+                        printf("Error: fill_counter %d is larger than n_maxrs in first M_not loop %d\n", fill_counter, n_maxuq);
+                    }
+                    #endif
                 }
             }
             //fill rest, might diverge but that's ok
             for(int i_v = start_vertex; i_v < start_vertex + tid; i_v++ ){
                 if (i_v < end_vertex && asso_idx[i_v] != uqidx){
-                    M_not[I2D(k, fill_counter, n_maxrs)] = i_v;
+                    M_not[I2D(fill_counter, k, n_unique)] = i_v;
                     fill_counter++;
+                    #ifdef DEBUG
+                    if(fill_counter > n_maxrs){
+                        printf("Error: fill_counter %d is larger than n_maxrs in first M_not loop %d\n", fill_counter, n_maxuq);
+                    }
+                    #endif
                 }
             }
             for(; fill_counter < n_maxrs; fill_counter++){
-                M_not[I2D(k, fill_counter, n_maxrs)] = -1;
+                M_not[I2D(fill_counter, k, n_unique)] = -1;
             }
         }
+        __syncthreads(); //make sure all end at the same time
 }
 
 static void check_all_inputs(
@@ -159,24 +185,27 @@ std::tuple<torch::Tensor, torch::Tensor> oc_helper_cuda_fn(
     auto n_maxuq = max_n_unique_over_splits.cpu().data_ptr<int32_t>()[0];
     auto n_maxrs = max_n_in_splits.cpu().data_ptr<int32_t>()[0];
 
-    torch::Tensor M = torch::empty({n_unique, n_maxuq}, options_int);
-    torch::Tensor M_not = torch::empty({n_unique, n_maxrs}, options_int);
+    torch::Tensor M_transposed = torch::empty({n_maxuq, n_unique}, options_int);
+    torch::Tensor M_not_transposed = torch::empty({n_maxrs, n_unique}, options_int);
 
-    grid_and_block gb(n_unique,256);
+    grid_and_block gb(n_unique, 512);
 
-    calc_m<int32_t><<<gb.grid(),gb.block()>>>(
+    calc_m<int32_t><<<gb.grid(), gb.block()>>>(
         asso_idx.data_ptr<int32_t>(),
         unique_idx.data_ptr<int32_t>(),
         unique_rs_asso.data_ptr<int32_t>(),
         rs.data_ptr<int32_t>(),
-        M.data_ptr<int32_t>(),
-        M_not.data_ptr<int32_t>(),
+        M_transposed.data_ptr<int32_t>(),
+        M_not_transposed.data_ptr<int32_t>(),
         n_vert,
         n_unique,
         n_maxuq,
         n_maxrs,
         calc_m_not
     );
+
+    torch::Tensor M = M_transposed.transpose(0, 1).contiguous();//ensure contiguous
+    torch::Tensor M_not = M_not_transposed.transpose(0, 1).contiguous();
 
     return std::make_tuple(M, M_not);
 }
