@@ -6,6 +6,23 @@ from ml4reco_modules import oc_helper_matrices, select_with_default
 
 class TestOcHelper(unittest.TestCase):
 
+    def sort_matrices(self, M, M_not):
+        # sort M in the second dimension using masked M
+        M_masked = M.clone()
+        max_in_m = M.max().item()
+        M_masked[M_masked == -1] = max_in_m+100
+        M = torch.gather(M, 1, M_masked.argsort(dim=1))
+
+        #do the same to M_not
+        M_not_masked = M_not.clone()
+        max_in_m_not = M_not.max().item()
+        M_not_masked[M_not_masked == -1] = max_in_m_not+100
+        M_not = torch.gather(M_not, 1, M_not_masked.argsort(dim=1))
+
+        # sort M in the first dimension using masked M
+        sorting = M[:,0].argsort()
+        return M[sorting], M_not[sorting]
+
     def run_matrix_test(self, device):
         #create some association indices, repeating the same values a few times and also adding some -1s
                                     # 0  1   2   3   4  5   6  7  8   9  10  11  12  13  14
@@ -32,18 +49,7 @@ class TestOcHelper(unittest.TestCase):
 
         # now let's call the function
         M, M_not = oc_helper_matrices(asso_indices, row_splits)
-        # sort M in the second dimension using masked M
-        M_masked = M.clone()
-        M_masked[M_masked == -1] = 1000
-        M = torch.gather(M, 1, M_masked.argsort(dim=1))
-
-        #do the same to M_not
-        M_not_masked = M_not.clone()
-        M_not_masked[M_not_masked == -1] = 1000
-        M_not = torch.gather(M_not, 1, M_not_masked.argsort(dim=1))
-
-        # this is just for comparison. The sorting is not important for the functionality
-
+        
 
         # check if device is correct
         self.assertTrue(M.device.type == device, "Test oc_helper_matrices M device failed: device wrong, got "+M.device.type+" but expected "+device)
@@ -74,20 +80,6 @@ class TestOcHelper(unittest.TestCase):
             dtype=M.dtype, device=device
         )
 
-        # check if M and M_exp they are the same.
-        # however, any permutation of the vectors in dim=0 also counts as valid, so we need to sort the rows
-        # and then compare, sort M simply by using the first entry in each row, this needs an argsort
-        M_sorted = M[M[:,0].argsort()]
-        M_exp_sorted = M_exp[M_exp[:,0].argsort()]
-
-
-        self.assertTrue(torch.equal(M_sorted, M_exp_sorted), "Test oc_helper_matrices data failed: data wrong. Expected: \n"+str(M_exp_sorted)+"\nbut got\n"+str(M_sorted))
-        
-        # M_not should contain the indices of the entries with different values for the asso index.
-        # also here, row split boundaries are not crossed
-        # The first row would correspond to all indices in the first row split that are not 3, 
-        # the second row to all indices that are not 20, etc. The matrix is padded with -1s
-
         M_not_exp = torch.tensor(
             [
                 #all not 3 in the first row split (not 0, 2 ,5)
@@ -111,9 +103,11 @@ class TestOcHelper(unittest.TestCase):
 
         # also here we need to sort the rows in the same way, according to M or M_exp, not M_not as the latter is 
         # ambiguous
-        M_not_sorted = M_not[M[:,0].argsort()]
-        M_not_exp_sorted = M_not_exp[M_exp[:,0].argsort()]
+        M_sorted, M_not_sorted = self.sort_matrices(M, M_not)
+        M_exp_sorted, M_not_exp_sorted = self.sort_matrices(M_exp, M_not_exp)
 
+        self.assertTrue(torch.equal(M_sorted, M_exp_sorted), "Test oc_helper_matrices data failed: data wrong. Expected: \n"+str(M_exp_sorted)+"\nbut got\n"+str(M_sorted))
+    
         self.assertTrue(torch.equal(M_not_sorted, M_not_exp_sorted), "Test oc_helper_matrices data failed: data wrong. Expected: \n"+str(M_not_exp_sorted)+"\nbut got\n"+str(M_not_sorted))
 
 
@@ -179,6 +173,64 @@ class TestOcHelper(unittest.TestCase):
         ok = sel == sel[:,0:1]
         ok = ok | (sel == -100)
         self.assertTrue(torch.all(ok).item(), "Test select_with_default large scale multi-dim failed: data wrong")
+
+    def run_large_scale_test(self, device):
+        # set a deterministic seed
+        torch.manual_seed(42)
+
+        # create some random indices, random seems to do different things on cpu and gpu, so keep cpu here
+        asso_indices = torch.randint(0, 100, (1000,), dtype=torch.int32, device='cpu') - 1 
+        asso_indices = asso_indices.to(device)
+        row_splits = torch.tensor([0, len(asso_indices)//4, len(asso_indices)//2, len(asso_indices)], dtype=torch.int32, device=device)
+        M, M_not = oc_helper_matrices(asso_indices, row_splits)
+        
+        #load the expected ones
+        M_exp = torch.tensor(np.load("test_oc_helper_large_M.npy"), dtype=torch.int32, device=device)
+        M_not_exp = torch.tensor(np.load("test_oc_helper_large_M_not.npy"), dtype=torch.int32, device=device)
+
+        # sort all of them
+        M_sorted, M_not_sorted = self.sort_matrices(M, M_not)
+        M_exp_sorted, M_not_exp_sorted = self.sort_matrices(M_exp, M_not_exp)
+
+        self.assertTrue(torch.equal(M_sorted, M_exp_sorted), f"Test oc_helper_matrices ({device}) large scale M data failed: data wrong.\n")
+        self.assertTrue(torch.equal(M_not_sorted, M_not_exp_sorted), f"Test oc_helper_matrices ({device}) large scale M_not data failed: data wrong.\n")
+
+    @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
+    def test_cpu_against_cuda_matrices(self):
+        def create_input():
+            asso_indices = torch.randint(0, 100, (100000,), dtype=torch.int32, device='cpu') - 1
+            row_splits = torch.tensor([0, len(asso_indices)//4, len(asso_indices)//2, len(asso_indices)], dtype=torch.int32, device='cpu')
+            return asso_indices, row_splits
+        
+        asso_indices, row_splits = create_input()
+        M_cpu, M_not_cpu = oc_helper_matrices(asso_indices, row_splits) #cpu
+        #move inputs to cuda
+        asso_indices = asso_indices.to('cuda')
+        row_splits = row_splits.to('cuda')
+        M_cuda, M_not_cuda = oc_helper_matrices(asso_indices, row_splits) #cuda
+
+        # move all to gpu for faster sorting and comparison
+        M_cpu = M_cpu.to('cuda')
+        M_not_cpu = M_not_cpu.to('cuda')
+
+        # sort all of them
+        M_cpu_sorted, M_not_cpu_sorted = self.sort_matrices(M_cpu, M_not_cpu)
+        M_cuda_sorted, M_not_cuda_sorted = self.sort_matrices(M_cuda, M_not_cuda)
+
+        self.assertTrue(torch.equal(M_cpu_sorted, M_cuda_sorted), "Test oc_helper_matrices cpu vs cuda failed: M data wrong")
+        self.assertTrue(torch.equal(M_not_cpu_sorted, M_not_cuda_sorted), "Test oc_helper_matrices cpu vs cuda failed: M_not data wrong")
+
+
+        
+    def test_matrices_large_scale_cpu(self):
+        self.run_large_scale_test('cpu')
+
+    def test_matrices_large_scale_cpu(self):
+        self.run_large_scale_test('cuda')
+
+
+
+
 
 
     def test_select_with_default_cpu(self):

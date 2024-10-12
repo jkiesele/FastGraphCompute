@@ -14,8 +14,6 @@ jkiesele
 #include <cuda_runtime.h>
 #include "cuda_helpers.h"
 
-#define DEBUG 1
-
 template <typename T>
 __global__
 static void calc_m(
@@ -43,12 +41,12 @@ static void calc_m(
         int start_vertex = rs[uqidx_i_rs];
         int end_vertex = rs[uqidx_i_rs+1];
         if(end_vertex > n_vert){
-            printf("Error: end_vertex %d is larger than n_vert %d, setting end_vertex to n_vert\n", end_vertex, n_vert);
+            printf("Error: end_vertex %d is larger than n_vert %d, setting end_vertex to n_vert . Check inputs!\n", end_vertex, n_vert);
             end_vertex = n_vert;
         }
         //sanity check: end_vertex - start_vertex should be smaller or equal to n_maxrs
         if(end_vertex - start_vertex > n_maxrs){
-            printf("Error: end_vertex - start_vertex %d is larger than n_maxrs %d, setting end_vertex to start_vertex + n_maxrs\n", end_vertex - start_vertex, n_maxrs);
+            printf("Error: end_vertex - start_vertex %d is larger than n_maxrs %d, setting end_vertex to start_vertex + n_maxrs . Check inputs!\n", end_vertex - start_vertex, n_maxrs);
             end_vertex = start_vertex + n_maxrs;
         }
         //synch threads here, now everything is same for all threads
@@ -59,11 +57,10 @@ static void calc_m(
             if(asso_idx[i_v] == uqidx){
                 M[I2D(fill_counter, k, n_unique)] = i_v;
                 fill_counter++;
-                #ifdef DEBUG
                 if(fill_counter > n_maxuq){
-                    printf("Error: fill_counter %d is larger than n_maxuq in first M loop %d\n", fill_counter, n_maxuq);
+                    printf("Error: fill_counter %d is larger than n_maxuq in first M loop %d . Check inputs!\n", fill_counter, n_maxuq);
+                    break;
                 }
-                #endif
             }
         }
         //fill rest, might diverge but that's ok
@@ -71,11 +68,10 @@ static void calc_m(
             if(i_v < end_vertex && asso_idx[i_v] == uqidx){
                 M[I2D(fill_counter, k, n_unique)] = i_v;
                 fill_counter++;
-                #ifdef DEBUG
                 if(fill_counter > n_maxuq){
-                    printf("Error: fill_counter %d is larger than n_maxuq in second M loop %d\n", fill_counter, n_maxuq);
+                    printf("Error: fill_counter %d is larger than n_maxuq in second M loop %d . Check inputs!\n", fill_counter, n_maxuq);
+                    break;
                 }
-                #endif
             }
         }
 
@@ -92,11 +88,10 @@ static void calc_m(
                 if (asso_idx[i_v] != uqidx){
                     M_not[I2D(fill_counter, k, n_unique)] = i_v;
                     fill_counter++;
-                    #ifdef DEBUG
                     if(fill_counter > n_maxrs){
-                        printf("Error: fill_counter %d is larger than n_maxrs in first M_not loop %d\n", fill_counter, n_maxuq);
+                        printf("Error: fill_counter %d is larger than n_maxrs in first M_not loop %d . Check inputs!\n", fill_counter, n_maxuq);
+                        break;
                     }
-                    #endif
                 }
             }
             //fill rest, might diverge but that's ok
@@ -104,11 +99,10 @@ static void calc_m(
                 if (i_v < end_vertex && asso_idx[i_v] != uqidx){
                     M_not[I2D(fill_counter, k, n_unique)] = i_v;
                     fill_counter++;
-                    #ifdef DEBUG
                     if(fill_counter > n_maxrs){
-                        printf("Error: fill_counter %d is larger than n_maxrs in first M_not loop %d\n", fill_counter, n_maxuq);
+                        printf("Error: fill_counter %d is larger than n_maxrs in first M_not loop %d . Check inputs!\n", fill_counter, n_maxuq);
+                        break;
                     }
-                    #endif
                 }
             }
             for(; fill_counter < n_maxrs; fill_counter++){

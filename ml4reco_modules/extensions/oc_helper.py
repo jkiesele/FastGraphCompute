@@ -20,6 +20,9 @@ def max_same_valued_entries_per_row_split(asso_idx, row_splits, filter_negative:
     Returns:
         max_per_split (torch.Tensor): A tensor containing the maximum count of the same values for each row split.
         global_max (int): The global maximum count across all row splits.
+
+    Notes:
+        FIXME: Eventually this should be replaced by a C++/CUDA implementation to avoid the Python loop and enable jit.
     """
     
     n_row_splits = row_splits.size(0) - 1  # number of row splits
