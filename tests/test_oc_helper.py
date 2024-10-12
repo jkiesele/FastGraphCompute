@@ -220,18 +220,11 @@ class TestOcHelper(unittest.TestCase):
         self.assertTrue(torch.equal(M_cpu_sorted, M_cuda_sorted), "Test oc_helper_matrices cpu vs cuda failed: M data wrong")
         self.assertTrue(torch.equal(M_not_cpu_sorted, M_not_cuda_sorted), "Test oc_helper_matrices cpu vs cuda failed: M_not data wrong")
 
-
-        
     def test_matrices_large_scale_cpu(self):
         self.run_large_scale_test('cpu')
 
     def test_matrices_large_scale_cpu(self):
         self.run_large_scale_test('cuda')
-
-
-
-
-
 
     def test_select_with_default_cpu(self):
         self.run_select_with_default_test('cpu')
@@ -239,10 +232,6 @@ class TestOcHelper(unittest.TestCase):
     @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
     def test_select_with_default_cuda(self):
         self.run_select_with_default_test('cuda')
-
-
-
-
 
 
 if __name__ == '__main__':
