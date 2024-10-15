@@ -93,6 +93,13 @@ class TestBinnedSelectKnn(unittest.TestCase):
         # Call your binned_select_knn function
         idx_knn_sorted, dist_knn_sorted = self.binned_select_knn_tester(K, coordinates, row_splits, direction=direction, n_bins=n_bins)
 
+        # sanity checks, for each row split, we can only have indices from that split
+        for i in range(row_splits.size(0) - 1):
+            start = row_splits[i]
+            end = row_splits[i + 1]
+            good = (idx_knn_sorted[start:end] >= start) & (idx_knn_sorted[start:end] < end)
+            self.assertTrue(torch.all(good), "Indices are out of row split bounds!, these are the occurences: "+str(idx_knn_sorted[start:end][~good]))
+
         idx_pytorch_sorted, dist_pytorch_sorted = self.knn_pytorch_baseline(K, coordinates, row_splits)
 
         distance_fn = lambda i, j: (torch.sum(torch.square(coordinates[i] - coordinates[j])))
