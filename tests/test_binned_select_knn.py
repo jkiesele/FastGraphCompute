@@ -64,7 +64,7 @@ class TestBinnedSelectKnn(unittest.TestCase):
         coordinates = torch.rand((n_points, n_dims), dtype=torch.float32, device=device)
         
         # Create dummy row_splits (assuming uniform splitting for simplicity)
-        row_splits = torch.tensor([0, n_points], dtype=torch.int32, device=device)
+        row_splits = torch.tensor([0, n_points//3, n_points//2, n_points], dtype=torch.int32, device=device)
         
         # Optionally create a dummy direction tensor
         direction = None  # For this test, we won't use direction constraints
@@ -73,7 +73,6 @@ class TestBinnedSelectKnn(unittest.TestCase):
         idx_knn_sorted, dist_knn_sorted = self.binned_select_knn_tester(K, coordinates, row_splits, direction=direction, n_bins=n_bins)
 
         idx_pytorch_sorted, dist_pytorch_sorted = self.knn_pytorch_baseline(K, coordinates)
-
 
         distance_fn = lambda i, j: (torch.sum(torch.square(coordinates[i] - coordinates[j])))
 

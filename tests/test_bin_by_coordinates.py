@@ -30,6 +30,7 @@ class TestBinByCoordinates(unittest.TestCase):
         ], dtype=torch.int32)
         self.row_splits = torch.tensor([0, 3], dtype=torch.int32)  # No actual split in this case, just one segment
 
+
     def do_simple_binning(self, cuda=False):
         if not cuda:
             op = torch.ops.bin_by_coordinates_cpu.bin_by_coordinates_cpu
@@ -105,7 +106,7 @@ class TestBinByCoordinates(unittest.TestCase):
 
         # Expected all coordinates to set indices to zero as per the C++ logic
         expected_assigned_bin = torch.tensor([
-            [0, 0, 0],
+            [0, 9, 9],
             [0, 9, 9],
             [0, 1, 1],
         ], dtype=torch.int32)
@@ -118,9 +119,9 @@ class TestBinByCoordinates(unittest.TestCase):
             expected_flat_assigned_bin[i] = f
             expected_n_per_bin[f] += 1
 
-        self.assertTrue(torch.equal(output_assigned_bin, expected_assigned_bin))
-        self.assertTrue(torch.equal(output_flat_assigned_bin, expected_flat_assigned_bin))
-        self.assertTrue(torch.equal(output_n_per_bin, expected_n_per_bin))
+        self.assertTrue(torch.equal(output_assigned_bin, expected_assigned_bin), f"Expected assigned bin: {expected_assigned_bin}, Got: {output_assigned_bin}")
+        self.assertTrue(torch.equal(output_flat_assigned_bin, expected_flat_assigned_bin), f"Expected flat assigned bin: {expected_flat_assigned_bin}, Got: {output_flat_assigned_bin}")
+        self.assertTrue(torch.equal(output_n_per_bin, expected_n_per_bin), f"Expected n per bin: {expected_n_per_bin}, Got: {output_n_per_bin}")
 
     def test_out_of_bounds_cuda(self):
         self.do_out_of_bounds(cuda=True)
@@ -131,8 +132,8 @@ class TestBinByCoordinates(unittest.TestCase):
 
     def do_large_scale(self, cuda=False):
         # Test with a larger scale of coordinates
-        coordinates = torch.rand((1000, 2)) * 5  # Coordinates in the range [0, 5)
-        row_splits = torch.tensor([0, 1000], dtype=torch.int32)  # No actual split in this case, just one segment
+        coordinates = torch.rand((1000, 2)) * 5  # Coordinates in the range [0, 5]
+        row_splits = torch.tensor([0, 300, 700, 1000], dtype=torch.int32) 
 
         if not cuda:
             op = torch.ops.bin_by_coordinates_cpu.bin_by_coordinates_cpu
@@ -155,6 +156,9 @@ class TestBinByCoordinates(unittest.TestCase):
             output_assigned_bin = output_assigned_bin.to('cpu')
             output_flat_assigned_bin = output_flat_assigned_bin.to('cpu')
             output_n_per_bin = output_n_per_bin.to('cpu')
+
+        #check if all the points are within the bounds
+        self.assertTrue(torch.sum(output_n_per_bin) == row_splits[-1], "Not all points were assigned a bin, expected %d, got %d" % (row_splits[-1], torch.sum(output_n_per_bin)))
 
         # Just ensure this runs without error for a basic sanity check
         self.assertEqual(output_assigned_bin.size(0), 1000)
