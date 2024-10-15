@@ -5,7 +5,7 @@ import unittest
 from ml4reco_modules import binned_select_knn
 
 class TestBinnedSelectKnn(unittest.TestCase):
-    def knn_pytorch_baseline(self, K, coordinates):
+    def knn_pytorch_baseline(self, K, coordinates, row_splits=None):
         """
         Simple KNN implementation using PyTorch.
         Args:
@@ -16,17 +16,38 @@ class TestBinnedSelectKnn(unittest.TestCase):
             torch.Tensor: Indices of the K nearest neighbors for each point.
             torch.Tensor: Distances**2 to the K nearest neighbors for each point.
         """
+
+        if row_splits is None:
+            row_splits = torch.tensor([0, coordinates.size(0)], dtype=torch.int32, device=coordinates.device)
         # Calculate the pairwise distances between points
         # dist_matrix = torch.cdist(coordinates, coordinates)
-        dist_matrix = torch.cdist(coordinates, coordinates, compute_mode='donot_use_mm_for_euclid_dist')
 
+        all_indices = []
+        all_dist = []
 
-        # Get the top-K nearest neighbors (including self at index 0)
-        dist, indices = torch.topk(dist_matrix, K, largest=False)
+        for i in range(row_splits.size(0) - 1):
+            start = row_splits[i]
+            end = row_splits[i + 1]
+            dist_matrix = torch.cdist(coordinates[start:end], coordinates[start:end], compute_mode='donot_use_mm_for_euclid_dist')
+            # Get the top-K nearest neighbors (including self at index 0)
+            dist, indices = torch.topk(dist_matrix, K, largest=False)
 
+            #add row split offset to indices
+            indices = indices + start
 
-        dist_pytorch_sorted, pytorch_sorted_indices = torch.sort(dist, dim=1)
-        idx_pytorch_sorted = torch.gather(indices, 1, pytorch_sorted_indices)
+            all_indices.append(indices)
+            all_dist.append(dist)
+
+        all_indices = torch.cat(all_indices, dim=0)
+        all_dist = torch.cat(all_dist, dim=0)
+
+        dist_pytorch_sorted, pytorch_sorted_indices = torch.sort(all_dist, dim=1)
+        idx_pytorch_sorted = torch.gather(all_indices, 1, pytorch_sorted_indices)
+
+        #make sure the baseline makes sense
+        #the first column is the distance to itself, so it should be zero and the index should be range(len(coords)), assert:
+        assert torch.allclose(dist_pytorch_sorted[:, 0], torch.zeros_like(dist_pytorch_sorted[:, 0]))
+        assert torch.all(idx_pytorch_sorted[:, 0] == torch.arange(len(coordinates), device=coordinates.device))
         
         return idx_pytorch_sorted, dist_pytorch_sorted**2
     
@@ -64,7 +85,7 @@ class TestBinnedSelectKnn(unittest.TestCase):
         coordinates = torch.rand((n_points, n_dims), dtype=torch.float32, device=device)
         
         # Create dummy row_splits (assuming uniform splitting for simplicity)
-        row_splits = torch.tensor([0, n_points//3, n_points//2, n_points], dtype=torch.int32, device=device)
+        row_splits = torch.tensor([0, n_points//3, n_points//2,  n_points], dtype=torch.int32, device=device)
         
         # Optionally create a dummy direction tensor
         direction = None  # For this test, we won't use direction constraints
@@ -72,7 +93,7 @@ class TestBinnedSelectKnn(unittest.TestCase):
         # Call your binned_select_knn function
         idx_knn_sorted, dist_knn_sorted = self.binned_select_knn_tester(K, coordinates, row_splits, direction=direction, n_bins=n_bins)
 
-        idx_pytorch_sorted, dist_pytorch_sorted = self.knn_pytorch_baseline(K, coordinates)
+        idx_pytorch_sorted, dist_pytorch_sorted = self.knn_pytorch_baseline(K, coordinates, row_splits)
 
         distance_fn = lambda i, j: (torch.sum(torch.square(coordinates[i] - coordinates[j])))
 
