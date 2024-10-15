@@ -30,6 +30,7 @@ class TestBinByCoordinates(unittest.TestCase):
         ], dtype=torch.int32)
         self.row_splits = torch.tensor([0, 3], dtype=torch.int32)  # No actual split in this case, just one segment
 
+
     def do_simple_binning(self, cuda=False):
         if not cuda:
             op = torch.ops.bin_by_coordinates_cpu.bin_by_coordinates_cpu
@@ -105,7 +106,7 @@ class TestBinByCoordinates(unittest.TestCase):
 
         # Expected all coordinates to set indices to zero as per the C++ logic
         expected_assigned_bin = torch.tensor([
-            [0, 0, 0],
+            [0, 9, 9],
             [0, 9, 9],
             [0, 1, 1],
         ], dtype=torch.int32)
@@ -118,9 +119,9 @@ class TestBinByCoordinates(unittest.TestCase):
             expected_flat_assigned_bin[i] = f
             expected_n_per_bin[f] += 1
 
-        self.assertTrue(torch.equal(output_assigned_bin, expected_assigned_bin))
-        self.assertTrue(torch.equal(output_flat_assigned_bin, expected_flat_assigned_bin))
-        self.assertTrue(torch.equal(output_n_per_bin, expected_n_per_bin))
+        self.assertTrue(torch.equal(output_assigned_bin, expected_assigned_bin), f"Expected assigned bin: {expected_assigned_bin}, Got: {output_assigned_bin}")
+        self.assertTrue(torch.equal(output_flat_assigned_bin, expected_flat_assigned_bin), f"Expected flat assigned bin: {expected_flat_assigned_bin}, Got: {output_flat_assigned_bin}")
+        self.assertTrue(torch.equal(output_n_per_bin, expected_n_per_bin), f"Expected n per bin: {expected_n_per_bin}, Got: {output_n_per_bin}")
 
     def test_out_of_bounds_cuda(self):
         self.do_out_of_bounds(cuda=True)
@@ -128,33 +129,57 @@ class TestBinByCoordinates(unittest.TestCase):
     def test_out_of_bounds_cpu(self):
         self.do_out_of_bounds(cuda=False)
 
+    
+    def calc_batch_index_from_rs(self, row_splits):
 
-    def do_large_scale(self, cuda=False):
+        # Ensure row_splits is int64 for tensor indexing
+        row_splits = row_splits.to(torch.int64)
+    
+        # Compute lengths of each batch (difference between consecutive row splits)
+        lengths = row_splits[1:] - row_splits[:-1]
+        
+        # Use repeat_interleave to assign batch indices
+        return torch.repeat_interleave(torch.arange(len(lengths), dtype=torch.long), lengths)
+
+
+    def do_large_scale(self, cuda=False, ndims=2):
         # Test with a larger scale of coordinates
-        coordinates = torch.rand((1000, 2)) * 5  # Coordinates in the range [0, 5)
-        row_splits = torch.tensor([0, 1000], dtype=torch.int32)  # No actual split in this case, just one segment
+        coordinates = torch.rand((1000, ndims)) * 5  # Coordinates in the range [0, 5]
+        # extend bin width and nbins
+        bin_width = torch.tensor([0.5], dtype=torch.float32)  # Example: 0.5 units per bin
+        nbins = torch.tensor([10]*ndims, dtype=torch.int32)  # Example: 10x10 grid
+        row_splits = torch.tensor([0, 300, 700, 1000], dtype=torch.int32) 
+
 
         if not cuda:
             op = torch.ops.bin_by_coordinates_cpu.bin_by_coordinates_cpu
             coord = coordinates
             rs = row_splits
-            bin_width = self.bin_width
-            nbins = self.nbins
         else:
             op = torch.ops.bin_by_coordinates_cuda.bin_by_coordinates
             coord = coordinates.to('cuda')
             rs = row_splits.to('cuda')
-            bin_width = self.bin_width.to('cuda')
-            nbins = self.nbins.to('cuda')
+            bin_width = bin_width.to('cuda')
+            nbins = nbins.to('cuda')
 
 
         output_assigned_bin, output_flat_assigned_bin, output_n_per_bin = op(
             coord, rs, bin_width, nbins, True)
+        
+        # sanity check. e.g. the entry in the first dimension of output_assigned_bin should correspond to the 
+        # row split index that entry is in
+        rs_index = self.calc_batch_index_from_rs(row_splits)
+        rs_index = rs_index.to(torch.int32)
+        rs_index = rs_index.to(coord.device)
+        self.assertTrue(torch.all(output_assigned_bin[:, 0] == rs_index), f"Expected: {rs_index}, Got: {output_assigned_bin[:, 0]}")
 
         if cuda:
             output_assigned_bin = output_assigned_bin.to('cpu')
             output_flat_assigned_bin = output_flat_assigned_bin.to('cpu')
             output_n_per_bin = output_n_per_bin.to('cpu')
+
+        #check if all the points are within the bounds
+        self.assertTrue(torch.sum(output_n_per_bin) == row_splits[-1], "Not all points were assigned a bin, expected %d, got %d" % (row_splits[-1], torch.sum(output_n_per_bin)))
 
         # Just ensure this runs without error for a basic sanity check
         self.assertEqual(output_assigned_bin.size(0), 1000)
@@ -166,6 +191,12 @@ class TestBinByCoordinates(unittest.TestCase):
 
     def test_large_scale_cpu(self):
         self.do_large_scale(cuda=False)
+
+    def test_large_scale_cuda4D(self):
+        self.do_large_scale(cuda=True, ndims=4)
+
+    def test_large_scale_cpu4D(self):
+        self.do_large_scale(cuda=False, ndims=4)
 
 if __name__ == '__main__':
     unittest.main()
