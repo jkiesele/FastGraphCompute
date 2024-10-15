@@ -129,6 +129,18 @@ class TestBinByCoordinates(unittest.TestCase):
     def test_out_of_bounds_cpu(self):
         self.do_out_of_bounds(cuda=False)
 
+    
+    def calc_batch_index_from_rs(self, row_splits):
+
+        # Ensure row_splits is int64 for tensor indexing
+        row_splits = row_splits.to(torch.int64)
+    
+        # Compute lengths of each batch (difference between consecutive row splits)
+        lengths = row_splits[1:] - row_splits[:-1]
+        
+        # Use repeat_interleave to assign batch indices
+        return torch.repeat_interleave(torch.arange(len(lengths), dtype=torch.long), lengths)
+
 
     def do_large_scale(self, cuda=False):
         # Test with a larger scale of coordinates
@@ -151,6 +163,13 @@ class TestBinByCoordinates(unittest.TestCase):
 
         output_assigned_bin, output_flat_assigned_bin, output_n_per_bin = op(
             coord, rs, bin_width, nbins, True)
+        
+        # sanity check. e.g. the entry in the first dimension of output_assigned_bin should correspond to the 
+        # row split index that entry is in
+        rs_index = self.calc_batch_index_from_rs(row_splits)
+        rs_index = rs_index.to(torch.int32)
+        rs_index = rs_index.to(coord.device)
+        self.assertTrue(torch.all(output_assigned_bin[:, 0] == rs_index), f"Expected: {rs_index}, Got: {output_assigned_bin[:, 0]}")
 
         if cuda:
             output_assigned_bin = output_assigned_bin.to('cpu')
