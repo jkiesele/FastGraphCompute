@@ -198,6 +198,8 @@ std::tuple<torch::Tensor, torch::Tensor> oc_helper_cuda_fn(
         calc_m_not
     );
 
+    cudaDeviceSynchronize();
+
     torch::Tensor M = M_transposed.transpose(0, 1).contiguous();//ensure contiguous
     torch::Tensor M_not = M_not_transposed.transpose(0, 1).contiguous();
 

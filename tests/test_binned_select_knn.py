@@ -45,7 +45,7 @@ class TestBinnedSelectKnn(unittest.TestCase):
         return idx_knn_sorted, dist_knn_sorted
 
 
-    def do_large_test(self, device = 'cpu', strict=False):
+    def do_large_test(self, device = 'cpu', strict=False, n_bins= None):
         torch.manual_seed(45) # Don't change the seed. At some seeds it doesn't work for numerical reasons.
                               # Which one is closer can be ambiguous which might result in slightly different
                               # indices. The distance still remains "close".
@@ -54,13 +54,11 @@ class TestBinnedSelectKnn(unittest.TestCase):
             n_points = 10000  # Number of points
             n_dims = 3  # Number of dimensions
             K = 50  # Number of nearest neighbors to find
-            n_bins = 10  # Number of bins across each dimension
         else:
             # Parameters for the test
             n_points = 10000  # Number of points
             n_dims = 3      # Number of dimensions
             K = 100           # Number of nearest neighbors to find
-            n_bins = 10      # Number of bins across each dimension
 
         # Generate random coordinates (3D points)
         coordinates = torch.rand((n_points, n_dims), dtype=torch.float32, device=device)
