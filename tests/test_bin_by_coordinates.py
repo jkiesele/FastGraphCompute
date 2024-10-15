@@ -142,23 +142,25 @@ class TestBinByCoordinates(unittest.TestCase):
         return torch.repeat_interleave(torch.arange(len(lengths), dtype=torch.long), lengths)
 
 
-    def do_large_scale(self, cuda=False):
+    def do_large_scale(self, cuda=False, ndims=2):
         # Test with a larger scale of coordinates
-        coordinates = torch.rand((1000, 2)) * 5  # Coordinates in the range [0, 5]
+        coordinates = torch.rand((1000, ndims)) * 5  # Coordinates in the range [0, 5]
+        # extend bin width and nbins
+        bin_width = torch.tensor([0.5], dtype=torch.float32)  # Example: 0.5 units per bin
+        nbins = torch.tensor([10]*ndims, dtype=torch.int32)  # Example: 10x10 grid
         row_splits = torch.tensor([0, 300, 700, 1000], dtype=torch.int32) 
+
 
         if not cuda:
             op = torch.ops.bin_by_coordinates_cpu.bin_by_coordinates_cpu
             coord = coordinates
             rs = row_splits
-            bin_width = self.bin_width
-            nbins = self.nbins
         else:
             op = torch.ops.bin_by_coordinates_cuda.bin_by_coordinates
             coord = coordinates.to('cuda')
             rs = row_splits.to('cuda')
-            bin_width = self.bin_width.to('cuda')
-            nbins = self.nbins.to('cuda')
+            bin_width = bin_width.to('cuda')
+            nbins = nbins.to('cuda')
 
 
         output_assigned_bin, output_flat_assigned_bin, output_n_per_bin = op(
@@ -189,6 +191,12 @@ class TestBinByCoordinates(unittest.TestCase):
 
     def test_large_scale_cpu(self):
         self.do_large_scale(cuda=False)
+
+    def test_large_scale_cuda4D(self):
+        self.do_large_scale(cuda=True, ndims=4)
+
+    def test_large_scale_cpu4D(self):
+        self.do_large_scale(cuda=False, ndims=4)
 
 if __name__ == '__main__':
     unittest.main()
