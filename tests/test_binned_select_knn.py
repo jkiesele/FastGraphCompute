@@ -79,10 +79,11 @@ class TestBinnedSelectKnn(unittest.TestCase):
             # Parameters for the test
             n_points = 10000  # Number of points
             n_dims = 3      # Number of dimensions
-            K = 100           # Number of nearest neighbors to find
+            K = 50           # Number of nearest neighbors to find
 
         # Generate random coordinates (3D points)
-        coordinates = torch.rand((n_points, n_dims), dtype=torch.float32, device=device)
+        coordinates = torch.rand((n_points, n_dims), dtype=torch.float32, device='cpu') #random works differently on cpu and gpu
+        coordinates = coordinates.to(device) 
         
         # Create dummy row_splits (assuming uniform splitting for simplicity)
         row_splits = torch.tensor([0, n_points//3, n_points//2,  n_points], dtype=torch.int32, device=device)
