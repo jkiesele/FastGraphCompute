@@ -4,53 +4,103 @@ import torch
 from . import binned_select_knn
 from . import select_with_default
 
-# define a gravnet layer with a single layer of message passing following
-# the gravnet algorithm: https://arxiv.org/abs/1902.07987
-
 class GravNetOp(torch.nn.Module):
-    def __init__(self, input_dim, 
+    """
+    GravNetOp implements a single layer of the GravNet algorithm [arxiv:1902.07987], which 
+    is designed to learn local graph structures based on learned spatial coordinates. 
+    It combines both distance-based aggregation and feature propagation using message passing.
+
+    Args:
+        input_dim (int): The dimensionality of the input features.
+        output_dim (int): The dimensionality of the output features after message passing.
+        space_dim (int): The dimensionality of the learned spatial coordinates used for neighborhood construction.
+        propagate_dimensions (int): The dimensionality of the features propagated between neighbors.
+        k (int): The number of nearest neighbors to consider for each point in the learned space.
+        output_activation (torch.nn.Module, optional): Activation function applied to the output layer.
+                                                        Defaults to ReLU.
+        optimization_arguments (dict, optional): Additional arguments for optimizing the k-NN selection.
+
+    Attributes:
+        space_transformations (torch.nn.Linear): Linear layer to project input features into a lower-dimensional
+                                                 space for neighbor selection.
+        propagate_transformations (torch.nn.Linear): Linear layer to transform input features into a space
+                                                     for message passing.
+        output_transformations (torch.nn.Sequential): Linear and activation layers to produce the final output
+                                                      features after message aggregation.
+        optimization_arguments (dict): Additional arguments for k-NN optimization.
+
+    Methods:
+        forward(x, row_splits): Computes the output of the GravNet layer for a batch of input features.
+    """
+
+    def __init__(self, 
+                 input_dim, 
                  output_dim, 
                  space_dim, 
                  propagate_dimensions, 
-                 k=16,
-                 optimization_arguments : dict = {}):
+                 k,
+                 output_activation=torch.nn.ReLU(),
+                 optimization_arguments: dict = {}):
         
         super(GravNetOp, self).__init__()
 
-        assert 2 * propagate_dimensions == output_dim, "GravNetOp always returns mean and max over the neighbors w.r.t their propagate_dimensions."
-
-        self.input_dim = input_dim
-        self.space_dim = space_dim
-        self.propagate_dimensions = propagate_dimensions
         self.k = k
 
-        # define the two linear transformations
+        # Linear layer to project input features into the learned space (B x input_dim -> B x space_dim)
         self.space_transformations = torch.nn.Linear(input_dim, space_dim)
+        # Linear layer to transform input features into propagation features (B x input_dim -> B x propagate_dimensions)
         self.propagate_transformations = torch.nn.Linear(input_dim, propagate_dimensions)
+        # Linear and activation layers for producing the final output
+        self.output_transformations = torch.nn.Sequential(
+            torch.nn.Linear(2 * propagate_dimensions, output_dim),
+            output_activation
+        )
 
+        # Store optimization arguments for neighbor selection
         self.optimization_arguments = optimization_arguments
 
     def forward(self, x, row_splits):
+        """
+        Forward pass of the GravNet layer.
+
+        Args:
+            x (torch.Tensor): Input feature tensor of shape (B, input_dim), where B is the batch size.
+            row_splits (torch.Tensor): Tensor indicating the row splits for separate batches.
+
+        Returns:
+            torch.Tensor: Output feature tensor of shape (B, output_dim).
+        """
         
-        # apply the transformations
-        space = self.space_transformations(x) # B x S
-        propagate = self.propagate_transformations(x) # B x FLR
+        # Step 1: Transform input features into learned spatial coordinates
+        space = self.space_transformations(x)  # B x space_dim
         
-        # compute the neighbors and distances
+        # Step 2: Transform input features into propagation features
+        propagate = self.propagate_transformations(x)  # B x propagate_dimensions
+        
+        # Step 3: Determine the k-nearest neighbors based on the learned space
+        # neighbor_idx: Indices of k-nearest neighbors
+        # distsq: Squared distances to k-nearest neighbors
         neighbor_idx, distsq = binned_select_knn(self.k, space, row_splits,
-                                                 **self.optimization_arguments) # to be optimised
+                                                 **self.optimization_arguments)
 
-        # compute the weights
-        weights = torch.exp(-10. * distsq) # B x K
+        # Step 4: Compute weights based on distances (using a Gaussian kernel)
+        weights = torch.exp(-10. * distsq)  # B x K
 
-        # compute the weighted neighbour features, needs expansion to B x K x FLR
-        propagate = select_with_default(neighbor_idx, propagate , 0.0) # B x K x FLR
+        # Step 5: Aggregate features from neighboring nodes
+        # Gather features of the k-nearest neighbors
+        propagate = select_with_default(neighbor_idx, propagate, 0.0)  # B x K x propagate_dimensions
+        # Expand weights to match the feature dimensions (B x K -> B x K x propagate_dimensions)
         weights = weights.unsqueeze(-1)
+        # Apply the weights to the features
         propagate = propagate * weights
 
-        fmean = torch.mean(propagate, dim=1) # B x K x FLR -> B x FLR
-        fmax = torch.max(propagate, dim=1).values # B x K x FLR -> B x FLR
+        # Step 6: Aggregate features using mean and max pooling
+        fmean = torch.mean(propagate, dim=1)  # B x propagate_dimensions
+        fmax = torch.max(propagate, dim=1).values  # B x propagate_dimensions
 
-        # compute the output
-        output = torch.cat([fmean, fmax], dim=1)
-        return output
+        # Step 7: Concatenate the mean and max pooled features
+        output = torch.cat([fmean, fmax], dim=1)  # B x (2 * propagate_dimensions)
+
+        # Step 8: Apply final transformation to get output features
+        return self.output_transformations(output)
+    
