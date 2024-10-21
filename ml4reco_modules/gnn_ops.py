@@ -11,9 +11,9 @@ class GravNetOp(torch.nn.Module):
     It combines both distance-based aggregation and feature propagation using message passing.
 
     Args:
-        input_dim (int): The dimensionality of the input features.
-        output_dim (int): The dimensionality of the output features after message passing.
-        space_dim (int): The dimensionality of the learned spatial coordinates used for neighborhood construction.
+        in_channels (int): The dimensionality of the input features.
+        out_channels (int): The dimensionality of the output features after message passing.
+        space_dimensions (int): The dimensionality of the learned spatial coordinates used for neighborhood construction.
         propagate_dimensions (int): The dimensionality of the features propagated between neighbors.
         k (int): The number of nearest neighbors to consider for each point in the learned space.
         output_activation (torch.nn.Module, optional): Activation function applied to the output layer.
@@ -33,11 +33,11 @@ class GravNetOp(torch.nn.Module):
         forward(x, row_splits): Computes the output of the GravNet layer for a batch of input features.
     """
 
-    def __init__(self, 
-                 input_dim, 
-                 output_dim, 
-                 space_dim, 
-                 propagate_dimensions, 
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 space_dimensions,
+                 propagate_dimensions,
                  k,
                  output_activation=torch.nn.ReLU(),
                  optimization_arguments: dict = {}):
@@ -47,12 +47,12 @@ class GravNetOp(torch.nn.Module):
         self.k = k
 
         # Linear layer to project input features into the learned space (B x input_dim -> B x space_dim)
-        self.space_transformations = torch.nn.Linear(input_dim, space_dim)
+        self.space_transformations = torch.nn.Linear(in_channels, space_dimensions)
         # Linear layer to transform input features into propagation features (B x input_dim -> B x propagate_dimensions)
-        self.propagate_transformations = torch.nn.Linear(input_dim, propagate_dimensions)
+        self.propagate_transformations = torch.nn.Linear(in_channels, propagate_dimensions)
         # Linear and activation layers for producing the final output
         self.output_transformations = torch.nn.Sequential(
-            torch.nn.Linear(2 * propagate_dimensions, output_dim),
+            torch.nn.Linear(2 * propagate_dimensions, out_channels),
             output_activation
         )
 
