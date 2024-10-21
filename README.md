@@ -1,5 +1,6 @@
-## WARNING: In development mode
-
+## WARNING: Almost but not fully ready!
+To be released with the CHEP2024 proceedings. More information here:
+[https://indico.cern.ch/event/1338689/page/31559-the-conference-format](https://indico.cern.ch/event/1338689/page/31559-the-conference-format)
 
 # Development guide
 Only tested on machines with Nvidia GPUs.
