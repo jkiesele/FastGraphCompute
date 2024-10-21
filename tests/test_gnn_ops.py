@@ -11,12 +11,12 @@ class TestGravNetOp(unittest.TestCase):
                 for k in [8, 100]:
                     for s in [2,3,16]:
                        
-                        op = GravNetOp(input_dim=in_dim, 
-                           output_dim=2*prop_dim, 
-                           space_dim=s, 
-                           k = k,
-                           propagate_dimensions=prop_dim,
-                           optimization_arguments={})
+                        op = GravNetOp(in_channels=in_dim,
+                                       out_channels=2 * prop_dim,
+                                       space_dimensions=s,
+                                       k = k,
+                                       propagate_dimensions=prop_dim,
+                                       optimization_arguments={})
         
                         op.to(device)
                         x = torch.randn(100, in_dim).to(device)
