@@ -85,7 +85,7 @@ class GravNetModel(nn.Module):
 
 
 
-def main(use_op='torch-geometric'):
+def main(use_op='torch-geometric', no_grad=False):
     assert use_op in {'torch-geometric', 'custom'}
 
     # Example usage
@@ -108,7 +108,6 @@ def main(use_op='torch-geometric'):
     # Initialize the model
     model = GravNetModel(in_dim, prop_dim, space_dim, k, hidden_dim, output_dim, device, the_op=my_op).to(device)
 
-
     n_nodes = 200000
 
     # Example input data
@@ -117,11 +116,13 @@ def main(use_op='torch-geometric'):
         row_splits = torch.tensor([0, n_nodes], dtype=torch.int32).to(device)
         # Forward pass
         t1 = time.time()
-        output = model(x, row_splits)
+        if no_grad:
+            with torch.no_grad():
+                output = model(x, row_splits)
+        else:
+            output = model(x, row_splits)
         print(torch.sum(output)) # THIS IS IMPORTANT | don't remove it. Otherwise the lazy execution will mess up the time estimate
         print("Took", time.time() - t1)
-
-
 
 
 if __name__ == '__main__':
