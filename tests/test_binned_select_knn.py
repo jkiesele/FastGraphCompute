@@ -66,20 +66,16 @@ class TestBinnedSelectKnn(unittest.TestCase):
         return idx_knn_sorted, dist_knn_sorted
 
 
-    def do_large_test(self, device = 'cpu', strict=False, n_bins= None):
+    def do_large_test(self, device = 'cpu', strict=False, n_bins= None, n_dims=3, K=50):
         torch.manual_seed(45) # Don't change the seed. At some seeds it doesn't work for numerical reasons.
                               # Which one is closer can be ambiguous which might result in slightly different
                               # indices. The distance still remains "close".
         if device == 'cpu':
             # Parameters for the test
             n_points = 10000  # Number of points
-            n_dims = 3  # Number of dimensions
-            K = 50  # Number of nearest neighbors to find
         else:
             # Parameters for the test
             n_points = 10000  # Number of points
-            n_dims = 3      # Number of dimensions
-            K = 50           # Number of nearest neighbors to find
 
         # Generate random coordinates (3D points)
         coordinates = torch.rand((n_points, n_dims), dtype=torch.float32, device='cpu') #random works differently on cpu and gpu
@@ -134,6 +130,14 @@ class TestBinnedSelectKnn(unittest.TestCase):
     @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
     def test_large_binned_select_knn_cuda(self):
         self.do_large_test(device='cuda', strict=False)
+
+
+    def test_large_binned_select_knn_cpu_D8(self):
+        self.do_large_test(device='cpu', strict=False, n_dims=8)
+    
+    @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
+    def test_large_binned_select_knn_cuda_D8(self):
+        self.do_large_test(device='cuda', strict=False, n_dims=8)
 
 
     ####### gradients

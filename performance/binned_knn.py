@@ -134,9 +134,12 @@ def make_plot():
         ax.set_ylabel('time (ms)')
         ax.legend()
 
+        #set y range to 0 to 7000
+        ax.set_ylim(0, 7000)
+
         plt.savefig(f'binned_knn_perf_N{n}.png')
 
     
 
-run_perf_test()
+#run_perf_test()
 make_plot()

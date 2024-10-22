@@ -21,6 +21,17 @@ static float calculateDistance(size_t i_v, size_t j_v, const float * d_coord, si
 }
 
 
+__device__ __forceinline__
+static float calculateDistanceLocalChache(const float *  coord_i_v, size_t j_v, const float * d_coord, size_t n_coords){
+    float distsq=0;
+    for(size_t i=0;i<n_coords;i++){
+        float dist = coord_i_v[i] - d_coord[I2D(j_v,i,n_coords)];
+        distsq += dist*dist;
+    }
+    return distsq;
+}
+
+
 __device__
 static int searchLargestDistance(int i_v, float* d_dist, int n_neigh, float& maxdist){
 
@@ -126,7 +137,12 @@ static void select_knn_kernel(
     int sb_flat_offset = iv_bin - gbin_offset;
 
     // printf("considering vertex %d, bin %d, flat offset %d, global bin offset %d\n",i_v,iv_bin,sb_flat_offset,gbin_offset);
-
+    
+    float coord_i_v[10];//keep this and the next "10" in sync
+    int max_loc_n_coords = std::min(n_coords,10);
+    for(size_t i=0;i<max_loc_n_coords;i++){
+        coord_i_v[i] = d_coord[I2D(i_v,i,n_coords)];
+    }
 
     binstepper<N_bin_dims, T> stepper(d_n_bins, &d_dim_bin_idx[I2D(i_v,1,n_bin_dim+1)]);
 
@@ -178,7 +194,11 @@ static void select_knn_kernel(
                     continue;
 
                 //fill up
-                float distsq = calculateDistance(i_v,j_v,d_coord,n_coords);
+                float distsq = 0;
+                if(max_loc_n_coords < n_coords)
+                    distsq = calculateDistance(i_v,j_v,d_coord,n_coords);
+                else
+                    distsq = calculateDistanceLocalChache(coord_i_v,j_v,d_coord,n_coords);
                 if(nfilled< n_neigh){
                     d_indices[I2D(i_v,nfilled,n_neigh)] = j_v;
                     d_dist[I2D(i_v,nfilled,n_neigh)] = distsq;
