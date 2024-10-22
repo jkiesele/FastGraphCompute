@@ -8,7 +8,7 @@ from torch.utils.cpp_extension import BuildExtension
 from torch.utils.cpp_extension import CppExtension, CUDAExtension, CUDA_HOME
 
 # uncomment when going to deployment mode
-# os.environ['TORCH_CUDA_ARCH_LIST'] = '7.0;7.5;8.0;8.6;8.9+PTX'  # 
+os.environ['TORCH_CUDA_ARCH_LIST'] = '7.0;7.5;8.0;8.6;8.9+PTX'  # 
 
 CUDA_AVAILABLE = torch.cuda.is_available() and CUDA_HOME is not None
 
