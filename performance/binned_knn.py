@@ -78,9 +78,12 @@ def create_data(K, N, N_coord_dim):
     return prepare_inputs(K, coordinates, row_splits)
 
 
-def run_perf_test(Ns = [10000, 100000],
-                  dims = [3, 8, 10],
-                  K= [32, 64, 128, 256]):
+
+Ns = [10000, 100000]
+dims = [3, 8, 10]
+Ks= [32, 64, 128, 256]
+
+def run_perf_test():
     
     def run_test(N, N_coord_dim, K):
         data = create_data(K, N, N_coord_dim)
@@ -97,7 +100,7 @@ def run_perf_test(Ns = [10000, 100000],
     results = {}
     for n in Ns:
         for d in dims:
-            for k in K:
+            for k in Ks:
                 print(f"Running test for N={n}, dim={d}, K={k}")
                 run_test(n, d, k) #warmup
                 t = 0
@@ -122,10 +125,10 @@ def make_plot():
     # make one plot per N, and different colors per dim. xaxes in all plots should be K
     
     
-    for n in [10000, 100000]:
+    for n in Ns:
         fig, ax = plt.subplots()
-        for d in [3, 8, 10]:
-            x = [k for k in [32, 64, 128, 256]]
+        for d in dims:
+            x = [k for k in Ks]
             y = [results[(n, d, k)] for k in x]
             ax.plot(x, y, label=f'N={n}, dim={d}')
         
@@ -135,11 +138,11 @@ def make_plot():
         ax.legend()
 
         #set y range to 0 to 7000
-        ax.set_ylim(0, 7000)
+        #ax.set_ylim(0, 7000)
 
         plt.savefig(f'binned_knn_perf_N{n}.png')
 
     
 
-#run_perf_test()
+run_perf_test()
 make_plot()
