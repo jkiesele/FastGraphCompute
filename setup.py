@@ -7,8 +7,10 @@ import torch
 from torch.utils.cpp_extension import BuildExtension
 from torch.utils.cpp_extension import CppExtension, CUDAExtension, CUDA_HOME
 
-# uncomment when going to deployment mode
-os.environ['TORCH_CUDA_ARCH_LIST'] = '7.0;7.5;8.0;8.6;8.9+PTX'  # 
+# check if env variable DEV_MODE is set
+DEV_MODE = os.getenv('DEV_MODE', '0') == '1'
+if not DEV_MODE: #compile for all archs
+    os.environ['TORCH_CUDA_ARCH_LIST'] = '7.0;7.5;8.0;8.6;8.9+PTX'  # 
 
 CUDA_AVAILABLE = torch.cuda.is_available() and CUDA_HOME is not None
 
@@ -44,8 +46,7 @@ extensions_cpu = [
     CppExtension('ml4reco_modules.extensions.bin_by_coordinates_cpu', ['ml4reco_modules/extensions/bin_by_coordinates_cpu.cpp'], **cpu_kwargs),
     CppExtension('ml4reco_modules.extensions.binned_select_knn_cpu', ['ml4reco_modules/extensions/binned_select_knn_cpu.cpp'], **cpu_kwargs) ,
     CppExtension('ml4reco_modules.extensions.binned_select_knn_grad_cpu', ['ml4reco_modules/extensions/binned_select_knn_grad_cpu.cpp'], **cpu_kwargs),
-    CppExtension('ml4reco_modules.extensions.oc_helper_cpu', ['ml4reco_modules/extensions/oc_helper_cpu.cpp'], **cpu_kwargs) ,
-    CppExtension('ml4reco_modules.extensions.select_with_default_cpu', ['ml4reco_modules/extensions/select_with_default_cpu.cpp'], **cpu_kwargs) 
+    CppExtension('ml4reco_modules.extensions.oc_helper_cpu', ['ml4reco_modules/extensions/oc_helper_cpu.cpp'], **cpu_kwargs) 
 ]
 
 cuda_kwargs = dict(
@@ -82,11 +83,6 @@ extensions_cuda = [
     CUDAExtension(
         'ml4reco_modules.extensions.oc_helper_cuda',
         ['ml4reco_modules/extensions/oc_helper_cuda.cpp', 'ml4reco_modules/extensions/oc_helper_cuda_kernel.cu'],
-        **cuda_kwargs
-        ),
-    CUDAExtension(
-        'ml4reco_modules.extensions.select_with_default_cuda',
-        ['ml4reco_modules/extensions/select_with_default_cuda.cpp', 'ml4reco_modules/extensions/select_with_default_cuda_kernel.cu'],
         **cuda_kwargs
         )
     ]

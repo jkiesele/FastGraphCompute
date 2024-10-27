@@ -6,9 +6,6 @@ import os.path as osp
 torch.ops.load_library(osp.join(osp.dirname(osp.realpath(ml4reco_modules.extensions.__file__)), 'oc_helper_cpu.so'))
 torch.ops.load_library(osp.join(osp.dirname(osp.realpath(ml4reco_modules.extensions.__file__)), 'oc_helper_cuda.so'))
 
-torch.ops.load_library(osp.join(osp.dirname(osp.realpath(ml4reco_modules.extensions.__file__)), 'select_with_default_cpu.so'))
-torch.ops.load_library(osp.join(osp.dirname(osp.realpath(ml4reco_modules.extensions.__file__)), 'select_with_default_cuda.so'))
-
 def max_same_valued_entries_per_row_split(asso_idx, row_splits, filter_negative: bool = True):
     """
     This function calculates the maximum number of the same values in each row split.
@@ -246,17 +243,43 @@ def oc_helper_matrices(
     
     return M, M_not
 
-def select_with_default(indices: torch.Tensor,
-                        tensor: torch.Tensor,
-                        default):
-    """
-    This function selects the values from a tensor based on the given indices,
-    e.g. the M or M_not matrix from oc_helper_matrices.
-    For -1 entries in M or M_not, it uses the default value.
-    """
-    if tensor.device.type == 'cuda':
-        op = torch.ops.select_with_default_cuda.select_with_default_cuda
-    else:
-        op = torch.ops.select_with_default_cpu.select_with_default_cpu
 
-    return op(indices, tensor, default)
+
+def select_with_default(idx: torch.Tensor,
+                        feat: torch.Tensor,
+                        default_value):
+    """
+    Select features from 'feat' using indices from 'idx', replacing invalid indices (-1) with 'default_value'.
+
+    Parameters:
+    idx (torch.Tensor): Tensor of indices with shape (V, K) and dtype torch.int64 or torch.int32.
+    feat (torch.Tensor): Tensor of features with shape (V, F).
+    default_value (float): Scalar default value to use for invalid indices.
+
+    Returns:
+    torch.Tensor: Output tensor with shape (V, K, F).
+    """
+    idx = idx.long()
+
+    V, K = idx.shape
+    _, F = feat.shape
+
+    # Initialize the output tensor with the default value
+    output = torch.full((V, K, F), default_value, dtype=feat.dtype, device=feat.device)
+
+    # Create a mask for valid indices
+    valid_mask = idx != -1  # Shape: (V, K)
+
+    # Get the positions of valid indices
+    valid_positions = valid_mask.nonzero()  # Shape: (num_valid, 2)
+
+    # Extract valid indices
+    valid_idx = idx[valid_mask]  # Shape: (num_valid,)
+
+    # Gather the features corresponding to valid indices
+    selected_feat = feat[valid_idx]  # Shape: (num_valid, F)
+
+    # Assign the selected features to the appropriate positions in the output tensor
+    output[valid_positions[:, 0], valid_positions[:, 1]] = selected_feat
+
+    return output
