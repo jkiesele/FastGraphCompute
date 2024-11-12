@@ -2,14 +2,14 @@ import torch
 import numpy as np
 import unittest
 import os.path as osp
-import ml4reco_modules.extensions
+import fastgraphcompute.extensions
 
 # Load the shared library
-cpu_so_file = osp.join(osp.dirname(osp.realpath(ml4reco_modules.extensions.__file__)), 'bin_by_coordinates_cpu.so')
+cpu_so_file = osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'bin_by_coordinates_cpu.so')
 torch.ops.load_library(cpu_so_file)
 
 
-cuda_so_file = osp.join(osp.dirname(osp.realpath(ml4reco_modules.extensions.__file__)), 'bin_by_coordinates_cuda.so')
+cuda_so_file = osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'bin_by_coordinates_cuda.so')
 torch.ops.load_library(cuda_so_file)
 
 class TestBinByCoordinates(unittest.TestCase):

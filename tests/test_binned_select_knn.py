@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import unittest
 
-from ml4reco_modules import binned_select_knn
+from fastgraphcompute import binned_select_knn
 
 class TestBinnedSelectKnn(unittest.TestCase):
     def knn_pytorch_baseline(self, K, coordinates, row_splits=None):

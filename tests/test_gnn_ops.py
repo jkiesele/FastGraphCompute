@@ -1,6 +1,6 @@
 import unittest
 import torch
-from ml4reco_modules.gnn_ops import GravNetOp
+from fastgraphcompute.gnn_ops import GravNetOp
 
 class TestGravNetOp(unittest.TestCase):
 

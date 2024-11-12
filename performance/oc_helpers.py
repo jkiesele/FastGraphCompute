@@ -1,8 +1,8 @@
 import time
 import torch
 
-from ml4reco_modules import oc_helper_matrices, select_with_default
-from ml4reco_modules.extensions.oc_helper import _helper_inputs_filter
+from fastgraphcompute import oc_helper_matrices, select_with_default
+from fastgraphcompute.extensions.oc_helper import _helper_inputs_filter
 
 def benchmark_oc_helper_performance(device='cpu', num_nodes=1000000, num_row_splits=5, num_unique_per_split=1000, num_runs=5):
     """

@@ -15,8 +15,8 @@ install. I recommend this over CERN/other installed singularity as you get full 
 
 And clone the repository (or you can clone my version)
 ```
-git clone https://github.com/jkiesele/ml4reco_modules.git
-cd ml4reco_modules
+git clone https://github.com/jkiesele/fastgraphcompute.git
+cd fastgraphcompute
 ```
 
 And install

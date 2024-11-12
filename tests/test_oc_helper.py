@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import unittest
 import torch
-from ml4reco_modules import oc_helper_matrices, select_with_default
+from fastgraphcompute import oc_helper_matrices, select_with_default
 
 class TestOcHelper(unittest.TestCase):
 

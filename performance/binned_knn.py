@@ -2,13 +2,13 @@ import torch
 import os
 from os import path as osp
 import numpy as np
-import ml4reco_modules
-from ml4reco_modules.extensions.binned_select_knn import _binned_select_knn 
+import fastgraphcompute
+from fastgraphcompute.extensions.binned_select_knn import _binned_select_knn 
 
 
 
-torch.ops.load_library(osp.join(osp.dirname(osp.realpath(ml4reco_modules.extensions.__file__)), 'binned_select_knn_grad_cpu.so'))
-torch.ops.load_library(osp.join(osp.dirname(osp.realpath(ml4reco_modules.extensions.__file__)), 'binned_select_knn_grad_cuda.so'))
+torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_grad_cpu.so'))
+torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_grad_cuda.so'))
 
 op = torch.ops.binned_select_knn_cuda.binned_select_knn_cuda #only test cuda version here
 
@@ -42,7 +42,7 @@ def prepare_inputs(K,
         bin_coords = bin_coords[:, :max_bin_dims]  # Truncate the extra dimensions
 
     # Call BinByCoordinates to assign bins
-    dbinning, binning, nb, bin_width, nper = ml4reco_modules.bin_by_coordinates(bin_coords, row_splits, n_bins=n_bins)
+    dbinning, binning, nb, bin_width, nper = fastgraphcompute.bin_by_coordinates(bin_coords, row_splits, n_bins=n_bins)
 
     # Sort the points by bin assignment
     sorting = torch.argsort(binning, dim=0)

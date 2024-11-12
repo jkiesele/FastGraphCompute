@@ -1,7 +1,5 @@
 """
-ml4reco_modules.
-
-An example python library.
+fastgraphcompute.
 """
 
 __version__ = "1.0"

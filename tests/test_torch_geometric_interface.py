@@ -1,6 +1,6 @@
 import torch
 import unittest
-from ml4reco_modules.torch_geometric_interface import row_splits_from_strict_batch, strict_batch_from_row_splits
+from fastgraphcompute.torch_geometric_interface import row_splits_from_strict_batch, strict_batch_from_row_splits
 
 class TestRowSplitsFromStrictBatch(unittest.TestCase):
     
