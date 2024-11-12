@@ -3,7 +3,7 @@ import numpy as np
 import unittest
 import os.path as osp
 
-from ml4reco_modules import index_replacer
+from fastgraphcompute import index_replacer
 
 class TestIndexReplacer(unittest.TestCase):
 

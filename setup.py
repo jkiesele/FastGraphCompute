@@ -41,12 +41,12 @@ cpu_kwargs = dict(
     extra_link_args=['-s']
     )
 extensions_cpu = [
-    CppExtension('ml4reco_modules.extensions.select_knn_cpu', ['ml4reco_modules/extensions/select_knn_cpu.cpp'], **cpu_kwargs),
-    CppExtension('ml4reco_modules.extensions.index_replacer_cpu', ['ml4reco_modules/extensions/index_replacer_cpu.cpp'], **cpu_kwargs),
-    CppExtension('ml4reco_modules.extensions.bin_by_coordinates_cpu', ['ml4reco_modules/extensions/bin_by_coordinates_cpu.cpp'], **cpu_kwargs),
-    CppExtension('ml4reco_modules.extensions.binned_select_knn_cpu', ['ml4reco_modules/extensions/binned_select_knn_cpu.cpp'], **cpu_kwargs) ,
-    CppExtension('ml4reco_modules.extensions.binned_select_knn_grad_cpu', ['ml4reco_modules/extensions/binned_select_knn_grad_cpu.cpp'], **cpu_kwargs),
-    CppExtension('ml4reco_modules.extensions.oc_helper_cpu', ['ml4reco_modules/extensions/oc_helper_cpu.cpp'], **cpu_kwargs) 
+    CppExtension('fastgraphcompute.extensions.select_knn_cpu', ['fastgraphcompute/extensions/select_knn_cpu.cpp'], **cpu_kwargs),
+    CppExtension('fastgraphcompute.extensions.index_replacer_cpu', ['fastgraphcompute/extensions/index_replacer_cpu.cpp'], **cpu_kwargs),
+    CppExtension('fastgraphcompute.extensions.bin_by_coordinates_cpu', ['fastgraphcompute/extensions/bin_by_coordinates_cpu.cpp'], **cpu_kwargs),
+    CppExtension('fastgraphcompute.extensions.binned_select_knn_cpu', ['fastgraphcompute/extensions/binned_select_knn_cpu.cpp'], **cpu_kwargs) ,
+    CppExtension('fastgraphcompute.extensions.binned_select_knn_grad_cpu', ['fastgraphcompute/extensions/binned_select_knn_grad_cpu.cpp'], **cpu_kwargs),
+    CppExtension('fastgraphcompute.extensions.oc_helper_cpu', ['fastgraphcompute/extensions/oc_helper_cpu.cpp'], **cpu_kwargs) 
 ]
 
 cuda_kwargs = dict(
@@ -56,33 +56,33 @@ cuda_kwargs = dict(
     )
 extensions_cuda = [
     CUDAExtension(
-        'ml4reco_modules.extensions.select_knn_cuda',
-        ['ml4reco_modules/extensions/select_knn_cuda.cpp', 'ml4reco_modules/extensions/select_knn_cuda_kernel.cu'],
+        'fastgraphcompute.extensions.select_knn_cuda',
+        ['fastgraphcompute/extensions/select_knn_cuda.cpp', 'fastgraphcompute/extensions/select_knn_cuda_kernel.cu'],
         **cuda_kwargs
         ),
     CUDAExtension(
-        'ml4reco_modules.extensions.index_replacer_cuda',
-        ['ml4reco_modules/extensions/index_replacer_cuda.cpp','ml4reco_modules/extensions/index_replacer_cuda_kernel.cu'],
+        'fastgraphcompute.extensions.index_replacer_cuda',
+        ['fastgraphcompute/extensions/index_replacer_cuda.cpp','fastgraphcompute/extensions/index_replacer_cuda_kernel.cu'],
         **cuda_kwargs
         ),
     CUDAExtension(
-        'ml4reco_modules.extensions.bin_by_coordinates_cuda',
-        ['ml4reco_modules/extensions/bin_by_coordinates_cuda.cpp', 'ml4reco_modules/extensions/bin_by_coordinates_cuda_kernel.cu'],
+        'fastgraphcompute.extensions.bin_by_coordinates_cuda',
+        ['fastgraphcompute/extensions/bin_by_coordinates_cuda.cpp', 'fastgraphcompute/extensions/bin_by_coordinates_cuda_kernel.cu'],
         **cuda_kwargs
         ),
     CUDAExtension(
-        'ml4reco_modules.extensions.binned_select_knn_cuda',
-        ['ml4reco_modules/extensions/binned_select_knn_cuda.cpp', 'ml4reco_modules/extensions/binned_select_knn_cuda_kernel.cu'],
+        'fastgraphcompute.extensions.binned_select_knn_cuda',
+        ['fastgraphcompute/extensions/binned_select_knn_cuda.cpp', 'fastgraphcompute/extensions/binned_select_knn_cuda_kernel.cu'],
         **cuda_kwargs
         ),
     CUDAExtension(
-        'ml4reco_modules.extensions.binned_select_knn_grad_cuda',
-        ['ml4reco_modules/extensions/binned_select_knn_grad_cuda.cpp', 'ml4reco_modules/extensions/binned_select_knn_grad_cuda_kernel.cu'],
+        'fastgraphcompute.extensions.binned_select_knn_grad_cuda',
+        ['fastgraphcompute/extensions/binned_select_knn_grad_cuda.cpp', 'fastgraphcompute/extensions/binned_select_knn_grad_cuda_kernel.cu'],
         **cuda_kwargs
         ),
     CUDAExtension(
-        'ml4reco_modules.extensions.oc_helper_cuda',
-        ['ml4reco_modules/extensions/oc_helper_cuda.cpp', 'ml4reco_modules/extensions/oc_helper_cuda_kernel.cu'],
+        'fastgraphcompute.extensions.oc_helper_cuda',
+        ['fastgraphcompute/extensions/oc_helper_cuda.cpp', 'fastgraphcompute/extensions/oc_helper_cuda_kernel.cu'],
         **cuda_kwargs
         )
     ]
@@ -115,7 +115,7 @@ if num_jobs != '0':
     make_args = [f'-j{num_jobs}']
 
 setup(
-    name='ml4reco_modules',
+    name='fastgraphcompute',
     ext_modules=extensions if not BUILD_DOCS else [],
     packages=find_packages(),  # Automatically find packages
     cmdclass={

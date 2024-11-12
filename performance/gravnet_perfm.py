@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch_geometric.nn as pyg_nn  # Assuming GravNetOp is available in torch_geometric
 from torch import optim
 
-from ml4reco_modules.gnn_ops import GravNetOp
+from fastgraphcompute.gnn_ops import GravNetOp
 
 import torch
 import torch.nn as nn
