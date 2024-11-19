@@ -222,8 +222,10 @@ class TestOcHelper(unittest.TestCase):
 
     def test_matrices_large_scale_cpu(self):
         self.run_large_scale_test('cpu')
+    
 
-    def test_matrices_large_scale_cpu(self):
+    @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
+    def test_matrices_large_scale_cuda(self):
         self.run_large_scale_test('cuda')
 
     def test_select_with_default_cpu(self):

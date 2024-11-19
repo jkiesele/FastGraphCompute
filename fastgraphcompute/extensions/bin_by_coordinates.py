@@ -4,7 +4,8 @@ import os.path as osp
 
 #load the custom extension library
 torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'bin_by_coordinates_cpu.so'))
-torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'bin_by_coordinates_cuda.so'))
+if torch.cuda.is_available():
+    torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'bin_by_coordinates_cuda.so'))
 
 def bin_by_coordinates(coordinates, row_splits, bin_width=None, n_bins=None, calc_n_per_bin=True, pre_normalized=False, name=""):
     """

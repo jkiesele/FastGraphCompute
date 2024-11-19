@@ -1,8 +1,9 @@
-#include <cuda_runtime.h>
+
 #include <cmath>
 
 // some cuda/cpu compatibility defines
 #ifdef __CUDA_ARCH__
+    #include <cuda_runtime.h>
     #define BINSTEPPER_FLOOR(x) floorf(x)
     #define BINSTEPPER_CEIL(x) ceilf(x)
 #else

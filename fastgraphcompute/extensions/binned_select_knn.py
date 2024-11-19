@@ -6,11 +6,13 @@ from .index_replacer import index_replacer
 
 #load the custom extension library
 torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_cpu.so'))
-torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_cuda.so'))
+if torch.cuda.is_available():
+    torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_cuda.so'))
 
 #load the gradient library
 torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_grad_cpu.so'))
-torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_grad_cuda.so'))
+if torch.cuda.is_available():
+    torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_grad_cuda.so'))
 
 #just a wrapper function to call the custom extension
 def _binned_select_knn(

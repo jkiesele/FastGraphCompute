@@ -14,6 +14,7 @@ if not DEV_MODE: #compile for all archs
 
 CUDA_AVAILABLE = torch.cuda.is_available() and CUDA_HOME is not None
 
+
 DO_CPU = True
 DO_CUDA = CUDA_AVAILABLE
 
@@ -21,6 +22,9 @@ if os.getenv('FORCE_ONLY_CPU', '0') == '1':
     print('FORCE_ONLY_CPU: Only compiling CPU extensions')
     DO_CPU = True
     DO_CUDA = False
+    def CUDAExtension(*args, **kwargs):
+        print("CUDA is not available. Will not compile CUDA extensions.")
+
 elif os.getenv('FORCE_ONLY_CUDA', '0') == '1':
     print('FORCE_ONLY_CUDA: Only compiling CUDA extensions')
     DO_CPU = False
@@ -40,6 +44,11 @@ cpu_kwargs = dict(
     extra_compile_args={'cxx': ['-O2']},
     extra_link_args=['-s']
     )
+
+# if on mac os make sure to set the deployment target to minimum 10.13
+if os.getenv('MACOSX_DEPLOYMENT_TARGET', '0') != '0':
+    cpu_kwargs['extra_compile_args']['cxx'].append('-mmacosx-version-min=10.13')
+
 extensions_cpu = [
     CppExtension('fastgraphcompute.extensions.select_knn_cpu', ['fastgraphcompute/extensions/select_knn_cpu.cpp'], **cpu_kwargs),
     CppExtension('fastgraphcompute.extensions.index_replacer_cpu', ['fastgraphcompute/extensions/index_replacer_cpu.cpp'], **cpu_kwargs),

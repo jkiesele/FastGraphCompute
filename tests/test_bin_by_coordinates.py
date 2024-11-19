@@ -8,9 +8,9 @@ import fastgraphcompute.extensions
 cpu_so_file = osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'bin_by_coordinates_cpu.so')
 torch.ops.load_library(cpu_so_file)
 
-
-cuda_so_file = osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'bin_by_coordinates_cuda.so')
-torch.ops.load_library(cuda_so_file)
+if torch.cuda.is_available():
+    cuda_so_file = osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'bin_by_coordinates_cuda.so')
+    torch.ops.load_library(cuda_so_file)
 
 class TestBinByCoordinates(unittest.TestCase):
     def setUp(self):
@@ -66,6 +66,7 @@ class TestBinByCoordinates(unittest.TestCase):
         self.assertTrue(torch.equal(output_n_per_bin, expected_n_per_bin))
         self.assertTrue(torch.equal(output_flat_assigned_bin, expected_flat_assigned_bin))
 
+    @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
     def test_simple_binning_cuda(self):
         self.do_simple_binning(cuda=True)
 
@@ -123,6 +124,7 @@ class TestBinByCoordinates(unittest.TestCase):
         self.assertTrue(torch.equal(output_flat_assigned_bin, expected_flat_assigned_bin), f"Expected flat assigned bin: {expected_flat_assigned_bin}, Got: {output_flat_assigned_bin}")
         self.assertTrue(torch.equal(output_n_per_bin, expected_n_per_bin), f"Expected n per bin: {expected_n_per_bin}, Got: {output_n_per_bin}")
 
+    @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
     def test_out_of_bounds_cuda(self):
         self.do_out_of_bounds(cuda=True)
 
@@ -186,12 +188,14 @@ class TestBinByCoordinates(unittest.TestCase):
         self.assertEqual(output_flat_assigned_bin.size(0), 1000)
         self.assertTrue((output_n_per_bin.sum() <= 1000).item())  # Sum of indices may be less due to clamping to zero
 
+    @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
     def test_large_scale_cuda(self):
         self.do_large_scale(cuda=True)
 
     def test_large_scale_cpu(self):
         self.do_large_scale(cuda=False)
 
+    @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
     def test_large_scale_cuda4D(self):
         self.do_large_scale(cuda=True, ndims=4)
 

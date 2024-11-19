@@ -4,7 +4,8 @@ import os.path as osp
 
 #load the lib
 torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'oc_helper_cpu.so'))
-torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'oc_helper_cuda.so'))
+if torch.cuda.is_available():
+    torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'oc_helper_cuda.so'))
 
 def max_same_valued_entries_per_row_split(asso_idx, row_splits, filter_negative: bool = True):
     """

@@ -26,7 +26,8 @@ class TestGravNetOp(unittest.TestCase):
     
     def test_shape_cpu(self):
         self.do_shape_test('cpu')
-
+    
+    @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
     def test_shape_cuda(self):
         self.do_shape_test('cuda')
 

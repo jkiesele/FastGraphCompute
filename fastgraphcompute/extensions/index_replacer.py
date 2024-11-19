@@ -4,7 +4,8 @@ import os.path as osp
 
 # Load the shared libraries
 torch.ops.load_library(osp.join(osp.dirname(osp.realpath(__file__)), 'index_replacer_cpu.so'))
-torch.ops.load_library(osp.join(osp.dirname(osp.realpath(__file__)), 'index_replacer_cuda.so'))
+if torch.cuda.is_available():
+    torch.ops.load_library(osp.join(osp.dirname(osp.realpath(__file__)), 'index_replacer_cuda.so'))
 
 def index_replacer_torch(to_be_replaced: torch.Tensor, replacements: torch.Tensor) -> torch.Tensor:
     """
