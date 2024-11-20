@@ -45,11 +45,13 @@ class TestOcHelper(unittest.TestCase):
         # 2 times 19
         # 2 times -1
 
-        # in total we have 7 unique values, with the maximum being 20
+        # in total we have 7 unique values, with the maximum being 20, the first row split as 4 unique values, the second 3
 
         # now let's call the function
-        M, M_not = oc_helper_matrices(asso_indices, row_splits)
+        M, M_not, obj_per_rs = oc_helper_matrices(asso_indices, row_splits)
         
+        #check if the number of objects per row split is correct
+        self.assertTrue(torch.equal(obj_per_rs, torch.tensor([4, 3], dtype=torch.int32, device=device)), "Test oc_helper_matrices obj per rs failed: data wrong")
 
         # check if device is correct
         self.assertTrue(M.device.type == device, "Test oc_helper_matrices M device failed: device wrong, got "+M.device.type+" but expected "+device)
@@ -127,7 +129,7 @@ class TestOcHelper(unittest.TestCase):
         
         row_splits = torch.tensor([0, 15, len(asso_indices)], dtype=torch.int32, device=device)
         
-        M, M_not = oc_helper_matrices(asso_indices, row_splits)
+        M, M_not, _ = oc_helper_matrices(asso_indices, row_splits)
 
         #self consistency test
         sel = select_with_default(M, asso_indices.unsqueeze(-1)# add one dim
@@ -159,7 +161,7 @@ class TestOcHelper(unittest.TestCase):
         # create some random indices
         asso_indices = torch.randint(0, 1000, (100000,), dtype=torch.int32, device=device)-1 # -1 to have some -1s
         row_splits = torch.tensor([0, len(asso_indices)], dtype=torch.int32, device=device) #but take one row split only
-        M, M_not = oc_helper_matrices(asso_indices, row_splits)
+        M, M_not, _ = oc_helper_matrices(asso_indices, row_splits)
         sel = select_with_default(M, asso_indices.unsqueeze(-1), -100)
         #now every row in sel should contain the same value as M[:,0] or -100, test
         ok = sel == sel[:,0:1]
@@ -182,7 +184,7 @@ class TestOcHelper(unittest.TestCase):
         asso_indices = torch.randint(0, 100, (1000,), dtype=torch.int32, device='cpu') - 1 
         asso_indices = asso_indices.to(device)
         row_splits = torch.tensor([0, len(asso_indices)//4, len(asso_indices)//2, len(asso_indices)], dtype=torch.int32, device=device)
-        M, M_not = oc_helper_matrices(asso_indices, row_splits)
+        M, M_not, _ = oc_helper_matrices(asso_indices, row_splits)
         
         #load the expected ones
         M_exp = torch.tensor(np.load("test_oc_helper_large_M.npy"), dtype=torch.int32, device=device)
@@ -203,11 +205,11 @@ class TestOcHelper(unittest.TestCase):
             return asso_indices, row_splits
         
         asso_indices, row_splits = create_input()
-        M_cpu, M_not_cpu = oc_helper_matrices(asso_indices, row_splits) #cpu
+        M_cpu, M_not_cpu, nper_cpu = oc_helper_matrices(asso_indices, row_splits) #cpu
         #move inputs to cuda
         asso_indices = asso_indices.to('cuda')
         row_splits = row_splits.to('cuda')
-        M_cuda, M_not_cuda = oc_helper_matrices(asso_indices, row_splits) #cuda
+        M_cuda, M_not_cuda, nper_cuda = oc_helper_matrices(asso_indices, row_splits) #cuda
 
         # move all to gpu for faster sorting and comparison
         M_cpu = M_cpu.to('cuda')
@@ -219,6 +221,7 @@ class TestOcHelper(unittest.TestCase):
 
         self.assertTrue(torch.equal(M_cpu_sorted, M_cuda_sorted), "Test oc_helper_matrices cpu vs cuda failed: M data wrong")
         self.assertTrue(torch.equal(M_not_cpu_sorted, M_not_cuda_sorted), "Test oc_helper_matrices cpu vs cuda failed: M_not data wrong")
+        self.assertTrue(torch.equal(nper_cpu, nper_cuda), "Test oc_helper_matrices obj per rs cpu vs cuda failed: nper data wrong")
 
     def test_matrices_large_scale_cpu(self):
         self.run_large_scale_test('cpu')

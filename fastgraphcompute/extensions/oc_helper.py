@@ -18,6 +18,8 @@ def max_same_valued_entries_per_row_split(asso_idx, row_splits, filter_negative:
     Returns:
         max_per_split (torch.Tensor): A tensor containing the maximum count of the same values for each row split.
         global_max (int): The global maximum count across all row splits.
+        objects_per_split (torch.Tensor): A tensor containing the number of objects in each row split.
+                                          Note: affected by filter_negative
 
     Notes:
         FIXME: Eventually this should be replaced by a C++/CUDA implementation to avoid the Python loop and enable jit.
@@ -25,6 +27,7 @@ def max_same_valued_entries_per_row_split(asso_idx, row_splits, filter_negative:
     
     n_row_splits = row_splits.size(0) - 1  # number of row splits
     max_per_split = torch.zeros(n_row_splits, dtype=torch.int64, device=asso_idx.device)
+    objects_per_split = torch.zeros(n_row_splits, dtype=torch.int64, device=asso_idx.device)
 
     for rs_idx in range(n_row_splits):
         start_vertex = row_splits[rs_idx]
@@ -47,10 +50,11 @@ def max_same_valued_entries_per_row_split(asso_idx, row_splits, filter_negative:
 
         # Find the maximum count and store it for this row split
         max_per_split[rs_idx] = counts.max()
+        objects_per_split[rs_idx] = unique_vals.size(0)
 
     # Return the max_per_split and the global maximum value across all splits
     global_max = max_per_split.max()
-    return max_per_split, global_max
+    return max_per_split, global_max, objects_per_split
 
 
 def _helper_inputs(truth_indices, row_splits, filter_negative: bool = True):
@@ -92,6 +96,9 @@ def _helper_inputs(truth_indices, row_splits, filter_negative: bool = True):
             - **max_length (torch.Tensor)**: 
               A scalar tensor representing the maximum length of any row split segment, 
               i.e., the maximum value in `lengths`.
+            
+            - **objects_per_split (torch.Tensor)**:
+              A 1D tensor that stores the number of unique objects in each row split. Repeated 
               
     Description:
         The `_helper_inputs` function is designed to process an input tensor `truth_indices` that
@@ -111,18 +118,20 @@ def _helper_inputs(truth_indices, row_splits, filter_negative: bool = True):
         truth_indices = torch.tensor([0, 1, 5, 60, 3, 3, -10, 90, 4, 3, -3, 3])
         row_splits = torch.tensor([0, 6, 12])
         
-        unique_vals, unique_row_splits, max_unique_per_split, lengths, max_length = _helper_inputs(truth_indices, row_splits)
+        unique_vals, unique_row_splits, max_unique_per_split, lengths, max_length, objects_per_split = _helper_inputs(truth_indices, row_splits)
         
         print('Unique Values:', unique_vals)
         print('Unique Row Splits:', unique_row_splits)
         print('Max Unique per Split:', max_unique_per_split)
         print('Lengths of each split:', lengths)
         print('Max Length of any split:', max_length)
+        print('Objects per Split:', objects_per_split)
+
         ```
 
     Notes:
-        - Beware: the CPU and CUDA versions do not give the exact identical output in terms of index ordering, but give the same output
-          in terms of functionality.
+        - Beware: the CPU and CUDA versions are not guaranteed to give the identical output in terms of index ordering, 
+          but give the same output in terms of functionality.
         - Ensure that `row_splits` starts with 0 and ends with the length of `truth_indices`, as the function assumes 
           the first and last values in `row_splits` to be boundaries for splitting.
         - If `truth_indices` contains negative values and `filter_negative=True`, those values will not be included 
@@ -150,6 +159,7 @@ def _helper_inputs(truth_indices, row_splits, filter_negative: bool = True):
     # Split the result into unique values and corresponding row splits
     unique_vals = unique_value_and_row_ids[:, 0]
     unique_row_splits = unique_value_and_row_ids[:, 1]
+    
 
     if filter_negative:
         valid_mask = unique_vals >= 0
@@ -159,14 +169,14 @@ def _helper_inputs(truth_indices, row_splits, filter_negative: bool = True):
     
     # Count the number of unique values per row split
     #ucop = torch.ops.row_split_unique_count.row_split_unique_count
-    _, max_same_unique_per_split = max_same_valued_entries_per_row_split(truth_indices, row_splits, filter_negative)
+    _, max_same_unique_per_split, objects_per_split = max_same_valued_entries_per_row_split(truth_indices, row_splits, filter_negative)
     
     #cast unique_vals, unique_row_splits, max_unique_per_split to same dtype as truth_indices
     unique_vals = unique_vals.type(truth_indices.dtype)
     unique_row_splits = unique_row_splits.type(truth_indices.dtype)
     max_same_unique_per_split = max_same_unique_per_split.type(truth_indices.dtype)
     
-    return unique_vals, unique_row_splits, max_same_unique_per_split, lengths, max_length
+    return unique_vals, unique_row_splits, max_same_unique_per_split, lengths, max_length, objects_per_split
 
 #for jit
 def _helper_inputs_filter(truth_indices, row_splits):
@@ -212,7 +222,7 @@ def oc_helper_matrices(
         op = torch.ops.oc_helper_cpu.oc_helper_cpu
 
     # get the helper inputs filtered
-    unique_idxs, unique_rs_asso, max_n_unique_over_splits, _, max_n_in_splits = _helper_inputs_filter(truth_idxs, row_splits)
+    unique_idxs, unique_rs_asso, max_n_unique_over_splits, _, max_n_in_splits, obj_per_split = _helper_inputs_filter(truth_idxs, row_splits)
 
     # add at least one dimension since the op interface requires it
     max_n_unique_over_splits = max_n_unique_over_splits.unsqueeze(0)
@@ -242,7 +252,7 @@ def oc_helper_matrices(
         max_n_in_splits,
         calc_m_not)
     
-    return M, M_not
+    return M, M_not, obj_per_split
 
 
 

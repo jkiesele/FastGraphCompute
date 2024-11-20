@@ -44,7 +44,7 @@ def benchmark_oc_helper_performance(device='cpu', num_nodes=1000000, num_row_spl
     torch.cuda.empty_cache() if device == 'cuda' else None  # Clear CUDA cache
     for _ in range(num_runs):
         start_time = time.time()
-        M, M_not = oc_helper_matrices(asso_indices, row_splits)
+        M, M_not, _ = oc_helper_matrices(asso_indices, row_splits)
         torch.cuda.synchronize() if device == 'cuda' else None  # Ensure CUDA is synchronized
         oc_helper_times.append(time.time() - start_time)
         torch.cuda.empty_cache() if device == 'cuda' else None  # Clear CUDA cache
