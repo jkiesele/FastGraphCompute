@@ -10,7 +10,7 @@ from torch.utils.cpp_extension import CppExtension, CUDAExtension, CUDA_HOME
 # check if env variable DEV_MODE is set
 DEV_MODE = os.getenv('DEV_MODE', '0') == '1'
 if not DEV_MODE: #compile for all archs
-    os.environ['TORCH_CUDA_ARCH_LIST'] = '6.1;7.0;7.5;8.0;8.6;8.9+PTX;9.0'  # 
+    os.environ['TORCH_CUDA_ARCH_LIST'] = '5.2;7.0;7.5;8.0;8.6;8.9+PTX;9.0'  # 
 
 CUDA_AVAILABLE = torch.cuda.is_available() and CUDA_HOME is not None
 
