@@ -67,7 +67,48 @@ class ObjectCondensation(torch.nn.Module):
         Raises:
             AssertionError: 
                 If `weighted_obj_coordinates` is not in the range [0, 1].
+        
+        Forward Method:
+            Inputs:
+                beta (torch.Tensor): 
+                    Tensor of shape (N, 1) containing the beta values for each point. 
+                    Beta values determine the point's contribution to object formation 
+                    and are limited to the range [0, 1].
+                
+                coords (torch.Tensor): 
+                    Tensor of shape (N, C) containing the spatial coordinates of the points. 
+                    These coordinates represent the cluster positions in a C-dimensional space.
+                
+                asso_idx (torch.Tensor): 
+                    Tensor of shape (N, 1) containing association indices for each point. 
+                    Positive integers correspond to the object a point belongs to, while -1 
+                    marks noise points that do not belong to any object.
+                
+                row_splits (torch.Tensor): 
+                    Tensor of shape (N_rs,) defining the row splits for batching. Each entry in 
+                    `row_splits` indicates the start and end indices of a batch in the data.
+            
+            What It Does:
+                - Constructs the object condensation loss components:
+                    1. Attractive potential loss (`L_V`): Encourages points to group into objects.
+                    2. Repulsive potential loss (`L_rep`): Discourages overlapping objects.
+                    3. Beta loss (`L_b`): Enforces a continuous maximum on beta and limits noise.
+                - Scales and normalizes these losses per object and batch.
+                - Returns scaling factors for payloads and losses for further downstream use.
+            
+            Returns:
+                tuple: 
+                    - L_V (torch.Tensor): Scalar attractive potential loss.
+                    - L_rep (torch.Tensor): Scalar repulsive potential loss.
+                    - L_b (torch.Tensor): Scalar beta loss, including noise penalty.
+                    - pl_scaling (torch.Tensor): Tensor of shape (N, 1), scaling factor for payload loss. 
+                                                 All normalisation is already applied. Just use as scaling 
+                                                 factor on a per-point basis and sum all points in the 
+                                                 batch to get the total payload loss.
+                    - L_V_rep (torch.Tensor): Tensor of shape (N, 1), combined per-point potential loss.
+                                              Can be used, e.g. for visualization or monitoring purposes.
         '''
+
         self.q_min = q_min
         self.s_B = s_B
         self.beta_scaling_epsilon = beta_scaling_epsilon
@@ -256,6 +297,8 @@ class ObjectCondensation(torch.nn.Module):
         pl_scaling = self.p_beta_scaling(beta / (1. + self.beta_scaling_epsilon))
         pl_scaling_k_m = select_with_default(M, pl_scaling, 0.) # K x M x 1
         pl_scaling_k_m = self.pl_norm(pl_scaling_k_m, M) # K x M x 1
+        #normalise w.r.t K
+        pl_scaling_k_m = pl_scaling_k_m / K_k.view(-1, 1, 1)
 
         #scatter back V = V_attractive + V_repulsive and pl_scaling to (N, 1)
 
