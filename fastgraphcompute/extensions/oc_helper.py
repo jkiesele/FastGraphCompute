@@ -4,57 +4,12 @@ import os.path as osp
 
 #load the lib
 torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'oc_helper_cpu.so'))
+torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'oc_helper_helper.so'))
 if torch.cuda.is_available():
     torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'oc_helper_cuda.so'))
 
-def max_same_valued_entries_per_row_split(asso_idx, row_splits, filter_negative: bool = True):
-    """
-    This function calculates the maximum number of the same values in each row split.
 
-    Args:
-        asso_idx (torch.Tensor): A tensor containing indices (e.g., labels or values).
-        row_splits (torch.Tensor): A tensor defining the start and end points of each row split.
-    
-    Returns:
-        max_per_split (torch.Tensor): A tensor containing the maximum count of the same values for each row split.
-        global_max (int): The global maximum count across all row splits.
-        objects_per_split (torch.Tensor): A tensor containing the number of objects in each row split.
-                                          Note: affected by filter_negative
-
-    Notes:
-        FIXME: Eventually this should be replaced by a C++/CUDA implementation to avoid the Python loop and enable jit.
-    """
-    
-    n_row_splits = row_splits.size(0) - 1  # number of row splits
-    max_per_split = torch.zeros(n_row_splits, dtype=torch.int64, device=asso_idx.device)
-    objects_per_split = torch.zeros(n_row_splits, dtype=torch.int64, device=asso_idx.device)
-
-    for rs_idx in range(n_row_splits):
-        start_vertex = row_splits[rs_idx]
-        end_vertex = row_splits[rs_idx + 1]
-
-        # Extract the slice of asso_idx for the current row split
-        asso_idx_slice = asso_idx[start_vertex:end_vertex]
-
-        # Filter out negative values (asso_idx >= 0)
-        if filter_negative:
-            asso_idx_filtered = asso_idx_slice[asso_idx_slice >= 0]
-        else:
-            asso_idx_filtered = asso_idx_slice
-
-        if asso_idx_filtered.numel() == 0:
-            continue  # Skip if no valid indices in this split
-
-        # Perform unique operation on the filtered slice and get counts
-        unique_vals, counts = torch.unique(asso_idx_filtered, return_counts=True)
-
-        # Find the maximum count and store it for this row split
-        max_per_split[rs_idx] = counts.max()
-        objects_per_split[rs_idx] = unique_vals.size(0)
-
-    # Return the max_per_split and the global maximum value across all splits
-    global_max = max_per_split.max()
-    return max_per_split, global_max, objects_per_split
+max_same_valued_entries_per_row_split = torch.ops.oc_helper_helper.max_same_valued_entries_per_row_split
 
 
 def _helper_inputs(truth_indices, row_splits, filter_negative: bool = True):
@@ -170,7 +125,7 @@ def _helper_inputs(truth_indices, row_splits, filter_negative: bool = True):
     # Count the number of unique values per row split
     #ucop = torch.ops.row_split_unique_count.row_split_unique_count
     _, max_same_unique_per_split, objects_per_split = max_same_valued_entries_per_row_split(truth_indices, row_splits, filter_negative)
-    
+
     #cast unique_vals, unique_row_splits, max_unique_per_split to same dtype as truth_indices
     unique_vals = unique_vals.type(truth_indices.dtype)
     unique_row_splits = unique_row_splits.type(truth_indices.dtype)
