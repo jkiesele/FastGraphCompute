@@ -1,4 +1,5 @@
 import os
+import sys
 import os.path as osp
 from setuptools import setup, find_packages
 from textwrap import dedent
@@ -44,9 +45,10 @@ cpu_kwargs = dict(
     extra_compile_args={'cxx': ['-O2']},
     extra_link_args=['-s']
     )
-
-# if on mac os make sure to set the deployment target to minimum 10.13
-if os.getenv('MACOSX_DEPLOYMENT_TARGET', '0') != '0':
+# Check if the platform is macOS
+if sys.platform == 'darwin':
+    print("Setting MACOSX_DEPLOYMENT_TARGET to 10.13")
+    # Append the compiler flag
     cpu_kwargs['extra_compile_args']['cxx'].append('-mmacosx-version-min=10.13')
 
 extensions_cpu = [
@@ -55,7 +57,8 @@ extensions_cpu = [
     CppExtension('fastgraphcompute.extensions.bin_by_coordinates_cpu', ['fastgraphcompute/extensions/bin_by_coordinates_cpu.cpp'], **cpu_kwargs),
     CppExtension('fastgraphcompute.extensions.binned_select_knn_cpu', ['fastgraphcompute/extensions/binned_select_knn_cpu.cpp'], **cpu_kwargs) ,
     CppExtension('fastgraphcompute.extensions.binned_select_knn_grad_cpu', ['fastgraphcompute/extensions/binned_select_knn_grad_cpu.cpp'], **cpu_kwargs),
-    CppExtension('fastgraphcompute.extensions.oc_helper_cpu', ['fastgraphcompute/extensions/oc_helper_cpu.cpp'], **cpu_kwargs) 
+    CppExtension('fastgraphcompute.extensions.oc_helper_cpu', ['fastgraphcompute/extensions/oc_helper_cpu.cpp'], **cpu_kwargs),
+    CppExtension('fastgraphcompute.extensions.oc_helper_helper', ['fastgraphcompute/extensions/oc_helper_helper.cpp'], **cpu_kwargs) 
 ]
 
 cuda_kwargs = dict(
