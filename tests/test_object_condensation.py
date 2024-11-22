@@ -175,7 +175,7 @@ class TestObjectCondensation(unittest.TestCase):
     def test_payload_scaling(self):
         beta = torch.tensor([[0.5], [0.6], [0.7]], dtype=torch.float32)
         asso_idx = torch.tensor([0, 0, 1], dtype=torch.int32)
-        K_k = torch.tensor([[1], [1]], dtype=torch.float32)  # K=2
+        K_k = torch.tensor([[2], [2]], dtype=torch.float32)  # K=2
         M = torch.tensor([[0, 1], [2, -1]], dtype=torch.int32)
         self.oc.beta_scaling_epsilon = 0.0  # To simplify calculations
 
@@ -190,15 +190,16 @@ class TestObjectCondensation(unittest.TestCase):
         # For cluster k=0:
         #   pl_scaling_k_m = [0.301, 0.4805], sum = 0.7815
         #   Normalized per object: [0.301/0.7815, 0.4805/0.7815] ≈ [0.3851, 0.6149]
-        #   Divide by K_k[0] = 1: [0.3851, 0.6149]
+        #   Divide by K_k[0] = 2: [0.3851/2., 0.6149/2.]
         # For cluster k=1:
         #   pl_scaling_k_m = [0.7526], sum = 0.7526
         #   Normalized: [1.0]
+        #   Divide by K_k[0] = 2: [1.0/2.]
         # Scatter back to N indices:
         #   Index 0: pl_scaling[0] = 0.3851
         #   Index 1: pl_scaling[1] = 0.6149
         #   Index 2: pl_scaling[2] = 1.0
-        pl_scaling_expected = torch.tensor([[0.3851], [0.6149], [1.0]], dtype=torch.float32)
+        pl_scaling_expected = torch.tensor([[0.3851/2.], [0.6149/2.], [1.0/2.]], dtype=torch.float32)
 
         result = self.oc._payload_scaling(beta, asso_idx, K_k, M).view(-1,1)
         self.assertTrue(torch.allclose(result, pl_scaling_expected, atol=1e-3), f"result: {result}, expected_output: {pl_scaling_expected}")
