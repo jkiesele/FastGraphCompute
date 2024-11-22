@@ -224,6 +224,52 @@ class ObjectCondensation(torch.nn.Module):
         x_a = (1. - self.weighted_obj_coordinates ) * x[alpha_indices]
         x_a = x_a + self.weighted_obj_coordinates * torch.mean(x_k_m, dim=1)
         return x_a.view(-1, 1, x.size(1))
+    
+    def _attractive_potential(self, beta_scale, beta_scale_k, coords_k, coords_k_m, M):
+        '''
+        returns the attractive potential loss for each object. # K x 1
+        '''
+
+        beta_scale_k_m = select_with_default(M, beta_scale, 0.) # K x M x 1
+        # mask
+        mask_k_m = select_with_default(M, torch.ones_like(beta_scale), 0.) # K x M x 1
+        ## Attractive potential
+        # get the distances
+        distsq_k_m = torch.sum((coords_k - coords_k_m)**2, dim=2, keepdim=True) # K x M x 1
+        
+        # get the attractive potential
+        V_attractive = mask_k_m * beta_scale_k.view(-1,1,1) * self.V_attractive_func(distsq_k_m) * beta_scale_k_m # K x M x 1
+        return torch.sum(V_attractive, dim=1) / (torch.sum(mask_k_m, dim=1) + 1e-6) # K x 1
+
+    def _repulsive_potential(self, beta_scale, beta_scale_k, coords, coords_k, M_not):
+        '''
+        returns the repulsive potential loss for each object. # K x 1
+        '''
+        ## Repulsive potential
+        coords_k_n = select_with_default(M_not, coords, 0.)
+        beta_scale_k_n = select_with_default(M_not, beta_scale, 0.)
+
+        mask_k_n = select_with_default(M_not, torch.ones_like(beta_scale), 0.)
+
+        # get the distances
+        distsq_k_n = torch.sum((coords_k_n - coords_k)**2, dim=2, keepdim=True)  # K x N' x 1
+        V_repulsive = mask_k_n * beta_scale_k.view(-1,1,1) * self.V_repulsive_func(distsq_k_n) * beta_scale_k_n # K x N' x 1
+        return self.rep_norm(torch.sum(V_repulsive, dim=1), torch.sum(mask_k_n, dim=1) + 1e-6) # K x 1
+        
+    def _payload_scaling(self, beta, asso_idx, K_k, M):
+        '''
+        returns payload scaling for each POINT. # N x 1
+        All normalisation is in there.
+        '''
+        ## Payload scaling
+        pl_scaling = self.p_beta_scaling(beta / (1. + self.beta_scaling_epsilon))
+        pl_scaling_k_m = select_with_default(M, pl_scaling, 0.) # K x M x 1
+        pl_scaling_k_m = self.pl_norm(pl_scaling_k_m, M) # K x M x 1
+        #normalise w.r.t K
+        pl_scaling_k_m = pl_scaling_k_m / K_k.view(-1, 1, 1)
+
+        return self._scatter_to_N_indices(pl_scaling_k_m, asso_idx, M) # N x 1
+
 
     def forward(self, beta, coords, asso_idx, row_splits):
         '''
@@ -242,70 +288,38 @@ class ObjectCondensation(torch.nn.Module):
 
         asso_idx = asso_idx.squeeze(1)
 
+        beta_scale = self.v_beta_scaling(beta / (1. + self.beta_scaling_epsilon)) + self.q_min # K x 1
+
         # get the matrices, row splits will be encoded in M and M_not
         # and are not needed after this
         M, M_not, obj_per_rs = oc_helper_matrices(asso_idx, row_splits) # M is (K, M), M_not is (K, N_prs)
+
+        beta_k_m = select_with_default(M, beta, 0.) # K x M x 1
+        # get argmax in dim 1 of beta_scale_k_m
+        alpha_indices = self.get_alpha_indices(beta_k_m, M)
+
+        # get the coordinates of the alphas
+        coords_k_m = select_with_default(M, coords, 0.)
+        coords_k = self.alpha_features(coords, coords_k_m, alpha_indices) # K x 1 x C
+        beta_scale_k = beta_scale[alpha_indices] # K x 1
+
+        L_V_k = self._attractive_potential(beta_scale, beta_scale_k, coords_k, coords_k_m, M)
+        L_rep_k = self._repulsive_potential(beta_scale, beta_scale_k, coords, coords_k, M_not) # K x 1
 
         # Use repeat_interleave to assign batch indices
         batch_idx = strict_batch_from_row_splits(row_splits)
         K_k = select_with_default(M, obj_per_rs[batch_idx].view(-1,1), 1)[:,0] #for normalisation, (K, 1)
 
-        beta_scale = self.v_beta_scaling(beta / (1. + self.beta_scaling_epsilon)) + self.q_min # K x 1
-
-        # get the potential loss
-        beta_scale_k_m = select_with_default(M, beta_scale, 0.) # K x M x 1
-        beta_k_m = select_with_default(M, beta, 0.) # K x M x 1
-
-        # mask
-        mask_k_m = select_with_default(M, torch.ones_like(beta_scale), 0.) # K x M x 1
-
-        # get argmax in dim 1 of beta_scale_k_m
-        alpha_indices = self.get_alpha_indices(beta_scale_k_m, M)
-
-        # get the coordinates of the alphas
-        coords_k_m = select_with_default(M, coords, 0.)
-        coords_k = self.alpha_features(coords, coords_k_m, alpha_indices)
-
-        beta_scale_k = beta_scale[alpha_indices] # K x 1
-
-        ## Attractive potential
-        # get the distances
-        distsq_k_m = torch.sum((coords_k - coords_k_m)**2, dim=2, keepdim=True) # K x M x 1
-        
-        # get the attractive potential
-        V_attractive = mask_k_m * beta_scale_k.view(-1,1,1) * self.V_attractive_func(distsq_k_m) * beta_scale_k_m # K x M x 1
-
         # mean over V' and mean over K
-        L_V_k = torch.sum(V_attractive, dim=1) / (torch.sum(mask_k_m, dim=1) + 1e-6) # K x 1
         L_V = torch.sum(L_V_k / K_k ) # scalar
 
-        ## Repulsive potential
-        coords_k_n = select_with_default(M_not, coords, 0.)
-        beta_scale_k_n = select_with_default(M_not, beta_scale, 0.)
-
-        mask_k_n = select_with_default(M_not, torch.ones_like(beta_scale), 0.)
-
-        # get the distances
-        distsq_k_n = torch.sum((coords_k_n - coords_k)**2, dim=2, keepdim=True)  # K x N' x 1
-        V_repulsive = mask_k_n * beta_scale_k.view(-1,1,1) * self.V_repulsive_func(distsq_k_n) * beta_scale_k_n # K x N' x 1
-
         # mean over N and mean over K
-        L_rep_k = self.rep_norm(torch.sum(V_repulsive, dim=1), torch.sum(mask_k_n, dim=1) + 1e-6) # K x 1
         L_rep = torch.sum(L_rep_k / K_k) # scalar
 
-        ## Payload scaling
-        pl_scaling = self.p_beta_scaling(beta / (1. + self.beta_scaling_epsilon))
-        pl_scaling_k_m = select_with_default(M, pl_scaling, 0.) # K x M x 1
-        pl_scaling_k_m = self.pl_norm(pl_scaling_k_m, M) # K x M x 1
-        #normalise w.r.t K
-        pl_scaling_k_m = pl_scaling_k_m / K_k.view(-1, 1, 1)
-
+        
         #scatter back V = V_attractive + V_repulsive and pl_scaling to (N, 1)
-
         L_k_m = (L_V_k + L_rep_k).view(-1, 1, 1).repeat(1, M.size(1), 1)
-        L_V_rep = self._scatter_to_N_indices(L_k_m, asso_idx, M) # N x 1
-
-        pl_scaling = self._scatter_to_N_indices(pl_scaling_k_m, asso_idx, M) # N x 1
+        L_V_rep_N = self._scatter_to_N_indices(L_k_m, asso_idx, M).view(-1,1) # N x 1
 
         # create the beta loss
         L_b_k = self._beta_loss(beta_k_m) # K x 1
@@ -317,5 +331,7 @@ class ObjectCondensation(torch.nn.Module):
 
         L_b = L_b + L_noise
 
-        return L_V, L_rep, L_b, pl_scaling, L_V_rep
+        pl_scaling = self._payload_scaling(beta, asso_idx, K_k, M).view(-1,1) # N x 1
+
+        return L_V, L_rep, L_b, pl_scaling, L_V_rep_N
 
