@@ -226,5 +226,157 @@ class TestObjectCondensation(unittest.TestCase):
         self.assertTrue(pl_scaling.shape == torch.Size([4, 1]), f"pl_scaling shape: {pl_scaling.shape}, expected shape: {torch.Size([4, 1])}")
         self.assertTrue(L_V_rep.shape == torch.Size([4, 1]), f"L_V_rep shape: {L_V_rep.shape}, expected shape: {torch.Size([4, 1])}")
 
+    
+
+import unittest
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import numpy as np
+from fastgraphcompute.object_condensation import ObjectCondensation  # Replace with the actual import path
+
+class SimpleNet(nn.Module):
+    def __init__(self, input_dim):
+        super(SimpleNet, self).__init__()
+        self.fc1 = nn.Linear(input_dim, 16)
+        self.relu = nn.ReLU()
+        self.fc_beta = nn.Linear(16, 1)    # Outputs beta
+        self.fc_coords = nn.Linear(16, 2)  # Outputs coordinates in 2D space
+
+    def forward(self, x):
+        x = self.relu(self.fc1(x))
+        beta = torch.sigmoid(self.fc_beta(x))  # Beta values between 0 and 1
+        coords = self.fc_coords(x)             # Coordinates in 2D space
+        return beta, coords
+
+class TestObjectCondensationTraining(unittest.TestCase):
+    def setUp(self):
+        self.device = torch.device("cpu")
+        self.num_points = 100
+        self.num_objects = 5
+
+        # Generate synthetic data
+        torch.manual_seed(42)  # For reproducibility
+
+        # Generate cluster centers
+        cluster_centers = torch.randn(self.num_objects, 2) * 5.0  # 5 clusters in 2D space
+
+        # Assign points to clusters
+        points_per_cluster = self.num_points // self.num_objects
+        data = []
+        asso_indices = []
+        for i in range(self.num_objects):
+            # Generate points around the cluster center
+            cluster_points = cluster_centers[i] + torch.randn(points_per_cluster, 2)
+            data.append(cluster_points)
+            asso_indices.extend([i] * points_per_cluster)
+        data = torch.vstack(data)
+        asso_indices = torch.tensor(asso_indices, dtype=torch.int32).unsqueeze(1)
+
+        # Add noise points
+        num_noise = self.num_points - len(asso_indices)
+        if num_noise > 0:
+            noise_points = torch.randn(num_noise, 2) * 10.0  # Noise spread out more
+            data = torch.vstack([data, noise_points])
+            asso_indices = torch.vstack([asso_indices, torch.full((num_noise, 1), -1, dtype=torch.int32)])
+
+        # Shuffle the data
+        perm = torch.randperm(len(data))
+        data = data[perm]
+        asso_indices = asso_indices[perm]
+
+        # Concatenate data and asso_indices
+        self.features = torch.cat([data, asso_indices.float() ], dim=1).to(self.device)  # Input features
+        self.asso_indices = asso_indices.to(self.device)
+
+        # Update model input dimension
+        input_dim = self.features.shape[1]
+        self.model = SimpleNet(input_dim).to(self.device)
+        self.oc_loss = ObjectCondensation().to(self.device)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=0.01)
+
+        # Define row splits for a single batch (since data is small)
+        self.row_splits = torch.tensor([0, len(self.features)], dtype=torch.int32).to(self.device)
+
+    def test_training(self):
+        num_epochs = 500
+        self.model.train()
+        for epoch in range(num_epochs):
+            self.optimizer.zero_grad()
+
+            # Forward pass
+            beta, coords = self.model(self.features)
+
+            # Compute loss
+            L_V, L_rep, L_b, pl_scaling, L_V_rep = self.oc_loss(beta, coords, self.asso_indices, self.row_splits)
+            loss = L_V + L_rep + L_b  # For simplicity, not including payload loss
+
+            # Backward pass and optimization
+            loss.backward()
+            self.optimizer.step()
+
+            # Optionally, print loss every 10 epochs
+            if (epoch + 1) % 100 == 0:
+                print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}")
+
+        # After training, evaluate the model
+        self.model.eval()
+        with torch.no_grad():
+            beta, coords = self.model(self.features)
+
+            # Identify alpha indices (points with highest beta in each object)
+            beta_np = beta.cpu().numpy()
+            asso_np = self.asso_indices.cpu().numpy().squeeze()
+            coords_np = coords.cpu().numpy()
+
+            # For each object, find the point with the highest beta
+            alpha_indices = {}
+            for idx in range(len(beta_np)):
+                obj_id = asso_np[idx]
+                if obj_id < 0:
+                    continue  # Skip noise
+                beta_value = beta_np[idx, 0]
+                if obj_id not in alpha_indices or beta_value > beta_np[alpha_indices[obj_id], 0]:
+                    alpha_indices[obj_id] = idx
+
+            # Check that alpha points have beta close to 1
+            for obj_id, idx in alpha_indices.items():
+                beta_value = beta_np[idx, 0]
+                self.assertGreaterEqual(beta_value, 0.9, f"Alpha point for object {obj_id} has beta {beta_value}, expected >= 0.9")
+
+            # Check that noise points have low beta
+            noise_indices = (asso_np == -1)
+            noise_beta = beta_np[noise_indices]
+            self.assertTrue((noise_beta <= 0.1).all(), "Not all noise points have low beta")
+
+            # Check that points in the same object are close to the alpha point
+            for obj_id in range(self.num_objects):
+                alpha_idx = alpha_indices.get(obj_id, None)
+                if alpha_idx is None:
+                    continue  # No points for this object
+                alpha_coord = coords_np[alpha_idx]
+                # Get indices of points in the same object
+                obj_indices = (asso_np == obj_id)
+                obj_coords = coords_np[obj_indices]
+                # Compute distances to alpha point
+                distances = np.linalg.norm(obj_coords - alpha_coord, axis=1)
+                max_distance = distances.max()
+                self.assertLessEqual(max_distance, 0.5, f"Points in object {obj_id} are not close to the alpha point")
+
+            # Check that payload scaling behaves accordingly
+            pl_scaling_np = pl_scaling.cpu().numpy()
+            # For each object, payload scaling should be higher for points with higher beta
+            for obj_id in range(self.num_objects):
+                obj_indices = (asso_np == obj_id)
+                obj_beta = beta_np[obj_indices]
+                obj_pl_scaling = pl_scaling_np[obj_indices]
+                # Check that payload scaling is monotonically increasing with beta
+                sorted_indices = np.argsort(obj_beta[:, 0])
+                sorted_pl_scaling = obj_pl_scaling[sorted_indices]
+                self.assertTrue(np.all(np.diff(sorted_pl_scaling[:, 0]) >= -1e-5), f"Payload scaling not increasing with beta in object {obj_id}")
+
+            print("Model training and evaluation completed successfully.")
+
 if __name__ == "__main__":
+    import numpy as np
     unittest.main()
