@@ -3,6 +3,7 @@ import fastgraphcompute.extensions
 import os.path as osp
 from .bin_by_coordinates import bin_by_coordinates
 from .index_replacer import index_replacer
+from typing import Optional, Tuple
 
 #load the custom extension library
 torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_cpu.so'))
@@ -14,17 +15,19 @@ torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extens
 if torch.cuda.is_available():
     torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_grad_cuda.so'))
 
+
 #just a wrapper function to call the custom extension
+#@torch.jit.script
 def _binned_select_knn(
     K: int,
     coordinates: torch.Tensor,
     bin_idx: torch.Tensor,
     dim_bin_idx: torch.Tensor,
     bin_boundaries: torch.Tensor,
-    n_bins, 
-    bin_width , 
-    torch_compatible_indices=False,
-    direction = None):
+    n_bins: torch.Tensor, 
+    bin_width: torch.Tensor , 
+    torch_compatible_indices: bool =False,
+    direction : Optional[torch.Tensor] = None):
 
     if coordinates.device.type == 'cuda':
         op = torch.ops.binned_select_knn_cuda.binned_select_knn_cuda
@@ -38,11 +41,12 @@ def _binned_select_knn(
         direction_input = direction
         
     #this can possibly be removed for deployment    
-    def assert_same_dtype(*tensors):
-        dtypes = [tensor.dtype for tensor in tensors]
-        assert all(dtype == dtypes[0] for dtype in dtypes), f"Mismatch in dtypes: {dtypes}"
-    assert_same_dtype(bin_idx, dim_bin_idx, bin_boundaries, n_bins, direction_input)
-    assert_same_dtype(coordinates, bin_width)
+    #def assert_same_dtype(*tensors):
+    #    dtypes = [tensor.dtype for tensor in tensors]
+    #    assert all(dtype == dtypes[0] for dtype in dtypes), f"Mismatch in dtypes: {dtypes}"
+    
+    #assert_same_dtype(bin_idx, dim_bin_idx, bin_boundaries, n_bins, direction_input)
+    #assert_same_dtype(coordinates, bin_width)
 
     idx, dist = op(coordinates, bin_idx, dim_bin_idx, bin_boundaries, n_bins, bin_width,
               direction_input, torch_compatible_indices, direction is not None, K)
@@ -56,10 +60,10 @@ class _BinnedKNNFunction(torch.autograd.Function):
                 coords: torch.Tensor,
                 row_splits: torch.Tensor,
                 K: int, 
-                direction=None, 
-                n_bins=None, 
+                direction: Optional[torch.Tensor] = None, 
+                n_bins: Optional[torch.Tensor] = None, 
                 max_bin_dims: int = 3, 
-                torch_compatible_indices=False):
+                torch_compatible_indices: bool =False)  -> Tuple[torch.Tensor, torch.Tensor]:
         
         # Estimate a good number of bins for homogeneous distributions
         elems_per_rs = torch.max(row_splits) / row_splits.shape[0]
@@ -117,7 +121,7 @@ class _BinnedKNNFunction(torch.autograd.Function):
 
         ctx.save_for_backward(idx, dist, coords)
         
-        return idx, dist
+        return (idx, dist)
         
     @staticmethod
     def backward(ctx, grad_idx, grad_dist):
@@ -135,16 +139,16 @@ class _BinnedKNNFunction(torch.autograd.Function):
         
         # Return gradients for each input; return None for inputs that don't require gradients
         return grad_coordinates, None, None, None, None, None, None  # None for other options if not differentiable
-
-
+    
+  
 
 def binned_select_knn(K: int, 
                       coords: torch.Tensor,
                       row_splits: torch.Tensor,
-                      direction=None, 
-                      n_bins=None, 
+                      direction: Optional[torch.Tensor] = None, 
+                      n_bins: Optional[torch.Tensor] = None, 
                       max_bin_dims: int = 3, 
-                      torch_compatible_indices=False):
+                      torch_compatible_indices: bool =False) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Perform K-Nearest Neighbors selection using binning.
 
@@ -155,7 +159,7 @@ def binned_select_knn(K: int,
         direction (torch.Tensor, optional): Direction constraint for neighbors.
         n_bins (torch.Tensor, optional): Number of bins per dimension.
         max_bin_dims (int, optional): Maximum number of bin dimensions.
-        tf_compatible (bool, optional): Compatibility flag for TensorFlow behavior.
+        tf_compatible (bool, optional): Compatibility flag for TensorFlow behavior.a
 
     Returns:
         Tuple[torch.Tensor, torch.Tensor]: Indices and distances of the nearest neighbors.

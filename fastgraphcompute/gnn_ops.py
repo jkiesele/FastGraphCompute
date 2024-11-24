@@ -72,8 +72,8 @@ class GravNetOp(torch.nn.Module):
     def _output_pass(self, x, nidx, distsq, coords):
         return x, nidx, distsq, coords
 
-
-    def forward(self, x, row_splits):
+    
+    def forward(self, x : torch.Tensor, row_splits : torch.Tensor):
         """
         Forward pass of the GravNet layer.
 
@@ -94,8 +94,7 @@ class GravNetOp(torch.nn.Module):
         # Step 3: Determine the k-nearest neighbors based on the learned space
         # neighbor_idx: Indices of k-nearest neighbors
         # distsq: Squared distances to k-nearest neighbors
-        neighbor_idx, distsq = binned_select_knn(self.k, space, row_splits,
-                                                 **self.optimization_arguments)
+        neighbor_idx, distsq = binned_select_knn(self.k, space, row_splits, **self.optimization_arguments)
 
         # Step 4: Compute weights based on distances (using a Gaussian kernel)
         weights = torch.exp(-10. * distsq)  # B x K
