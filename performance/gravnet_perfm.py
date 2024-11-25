@@ -80,7 +80,7 @@ class GravNetModel(nn.Module):
         # Pass through the GravNet layers followed by dense layers
         for i in range(self.num_gravnet_layers):
             if self.use_rs:
-                x = self.gravnet_layers[i](x, row_splits)
+                x, *_ = self.gravnet_layers[i](x, row_splits)
             else:
                 x = self.gravnet_layers[i](x)
 

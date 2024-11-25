@@ -1,4 +1,5 @@
 import torch
+from typing import Tuple
 
 #import the custom operations
 from . import binned_select_knn
@@ -18,10 +19,6 @@ class GravNetOp(torch.nn.Module):
         k (int): The number of nearest neighbors to consider for each point in the learned space.
         output_activation (torch.nn.Module, optional): Activation function applied to the output layer.
                                                         Defaults to ReLU.
-        return_more (bool, optional): Whether to return additional information for debugging/monitoring Defaults 
-                                       to False. If False, only the output features are returned.
-                                       If True, also the indices of the k-nearest neighbors, the distances^2 to them
-                                       and the learned coordinates are returned.
         optimization_arguments (dict, optional): Additional arguments for optimizing the k-NN selection.
 
     Attributes:
@@ -35,6 +32,8 @@ class GravNetOp(torch.nn.Module):
 
     Methods:
         forward(x, row_splits): Computes the output of the GravNet layer for a batch of input features.
+        Also the indices of the k-nearest neighbors, the distances^2 to them and the learned coordinates
+        are returned.
     """
 
     def __init__(self,
@@ -44,7 +43,6 @@ class GravNetOp(torch.nn.Module):
                  propagate_dimensions,
                  k,
                  output_activation=torch.nn.ReLU(),
-                 return_more = False,
                  optimization_arguments: dict = {}):
         
         super(GravNetOp, self).__init__()
@@ -64,16 +62,8 @@ class GravNetOp(torch.nn.Module):
         # Store optimization arguments for neighbor selection
         self.optimization_arguments = optimization_arguments
 
-        self.create_output = self._output_pass if return_more else self._output_restrict
-
-    def _output_restrict(self, x, nidx, distsq, coords):
-        return x
     
-    def _output_pass(self, x, nidx, distsq, coords):
-        return x, nidx, distsq, coords
-
-    
-    def forward(self, x : torch.Tensor, row_splits : torch.Tensor):
+    def forward(self, x : torch.Tensor, row_splits : torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Forward pass of the GravNet layer.
 
@@ -94,7 +84,7 @@ class GravNetOp(torch.nn.Module):
         # Step 3: Determine the k-nearest neighbors based on the learned space
         # neighbor_idx: Indices of k-nearest neighbors
         # distsq: Squared distances to k-nearest neighbors
-        neighbor_idx, distsq = binned_select_knn(self.k, space, row_splits, **self.optimization_arguments)
+        neighbor_idx, distsq = binned_select_knn(self.k, space, row_splits) #, **self.optimization_arguments)
 
         # Step 4: Compute weights based on distances (using a Gaussian kernel)
         weights = torch.exp(-10. * distsq)  # B x K
@@ -116,5 +106,5 @@ class GravNetOp(torch.nn.Module):
 
         # Step 8: Apply final transformation to get output features
         out = self.output_transformations(output)
-        return self.create_output(out, neighbor_idx, distsq, space)
+        return out, neighbor_idx, distsq, space
     

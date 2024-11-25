@@ -18,7 +18,7 @@ class SimpleGravNetModel(torch.nn.Module):
         self.fc = torch.nn.Linear(prop_dim, prop_dim)
 
     def forward(self, x, row_splits):
-        x = self.gravnet(x, row_splits)
+        x, *_ = self.gravnet(x, row_splits)
         x = self.fc(x)
         return x
 
@@ -41,7 +41,7 @@ class TestGravNetOp(unittest.TestCase):
                         op.to(device)
                         x = torch.randn(100, in_dim).to(device)
                         row_splits = torch.tensor([0, 50, 80, 100], dtype=torch.int32).to(device)
-                        output = op(x, row_splits)
+                        output, *_ = op(x, row_splits)
                         self.assertEqual(output.shape, (100, 2*prop_dim))
     
     def test_shape_cpu(self):
@@ -52,8 +52,7 @@ class TestGravNetOp(unittest.TestCase):
         self.do_shape_test('cuda')
 
     
-    def no_test_jit_compatibility(self):
-        device = 'cpu'
+    def test_jit_compatibility(self, device = 'cpu'):
         in_dim = 8
         prop_dim = 16
         k = 10
@@ -64,6 +63,8 @@ class TestGravNetOp(unittest.TestCase):
 
         x = torch.randn(100, in_dim).to(device)
         row_splits = torch.tensor([0, 50, 100], dtype=torch.int32).to(device)
+
+        model(x, row_splits) #run once in normal mode
 
         try:
             # Test scripting
