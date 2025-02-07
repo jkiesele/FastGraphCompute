@@ -1,8 +1,30 @@
 ## WARNING: Almost but not fully ready!
+
 To be released with the CHEP2024 proceedings. More information here:
 [https://indico.cern.ch/event/1338689/page/31559-the-conference-format](https://indico.cern.ch/event/1338689/page/31559-the-conference-format)
 
+
+The (guaranteed to be working) requirements are the following:
+```
+cuda 12.1 (e.g. from container nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04)
+cmake
+git
+python3-dev python3-pip
+torch==2.5.0 torchvision==0.20.0 torchaudio==2.5.0  --index-url https://download.pytorch.org/whl/cu121
+setuptools>=65 wheel>=0.43.0 
+
+# (optional if torch_geomatric support is needed)
+torch_geometric pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.5.0+cu121.html 
+
+```
+Finally
+```
+pip install git+https://github.com/jkiesele/FastGraphCompute
+```
+
 # Development guide
+
+
 Only tested on machines with Nvidia GPUs.
 
 First, shell inside the container. The `.sif` file can be downloaded from the link below. I use apptainer binary which
@@ -11,7 +33,6 @@ install. I recommend this over CERN/other installed singularity as you get full 
 
 
 [The container](https://uzh-my.sharepoint.com/:u:/g/personal/shahrukh_qasim_physik_uzh_ch/EbHEeOPLryFFn2N5m7xCHhABl1Hr7KrNrjibF5KB7ctzzw)
-
 
 And clone the repository (or you can clone my version)
 ```
