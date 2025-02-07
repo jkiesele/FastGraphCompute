@@ -22,6 +22,11 @@ Finally
 pip install git+https://github.com/jkiesele/FastGraphCompute
 ```
 
+# Usage
+
+The high-level packages can be found in `gnn_ops, object_condensation, torch_geometric_interface`
+These are: ...please add information...
+
 # Development guide
 
 
