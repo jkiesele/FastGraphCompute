@@ -1,68 +1,118 @@
-## WARNING: Almost but not fully ready!
+# FastGraphCompute
 
-To be released with the CHEP2024 proceedings. More information here:
-[https://indico.cern.ch/event/1338689/page/31559-the-conference-format](https://indico.cern.ch/event/1338689/page/31559-the-conference-format)
+FastGraphCompute is a high-performance extension for PyTorch designed to accelerate graph-based operations. It provides custom CUDA extensions for efficient computation in Graph Neural Networks (GNNs). The algorithms in this repository will be accompanied by a paper soon. Please leave room to cite it if you use this code.
 
+## Installation
 
-The (guaranteed to be working) requirements are the following:
+To install FastGraphCompute, ensure you have the following dependencies installed:
+
+### Prerequisites
+- **CUDA 12.1** (e.g., from container `nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04`)
+- **CMake**
+- **Git**
+- **Python3 development tools**
+- **PyTorch 2.5.0 with CUDA 12.1 support**
+
+You can install the required dependencies using:
+
+```bash
+pip install torch==2.5.0 torchvision==0.20.0 torchaudio==2.5.0 --index-url https://download.pytorch.org/whl/cu121
+pip install setuptools>=65 wheel>=0.43.0
 ```
-cuda 12.1 (e.g. from container nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04)
-cmake
-git
-python3-dev python3-pip
-torch==2.5.0 torchvision==0.20.0 torchaudio==2.5.0  --index-url https://download.pytorch.org/whl/cu121
-setuptools>=65 wheel>=0.43.0 
 
-# (optional if torch_geomatric support is needed)
-torch_geometric pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.5.0+cu121.html 
+For optional `torch_geometric` support:
+```bash
+pip install torch_geometric pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.5.0+cu121.html
+```
 
-```
-Finally
-```
+### Installing FastGraphCompute
+
+You can install FastGraphCompute directly from GitHub:
+```bash
 pip install git+https://github.com/jkiesele/FastGraphCompute
 ```
 
-# Usage
-
-The high-level packages can be found in `gnn_ops, object_condensation, torch_geometric_interface`
-These are: ...please add information...
-
-# Development guide
-
-
-Only tested on machines with Nvidia GPUs.
-
-First, shell inside the container. The `.sif` file can be downloaded from the link below. I use apptainer binary which
-can be downloaded from apptainer website. You can just extract it somewhere locally and don't need admin access to
-install. I recommend this over CERN/other installed singularity as you get full control and is faster to log in to.
-
-
-[The container](https://uzh-my.sharepoint.com/:u:/g/personal/shahrukh_qasim_physik_uzh_ch/EbHEeOPLryFFn2N5m7xCHhABl1Hr7KrNrjibF5KB7ctzzw)
-
-And clone the repository (or you can clone my version)
-```
-git clone https://github.com/jkiesele/fastgraphcompute.git
-cd fastgraphcompute
+Alternatively, if developing locally, clone the repository and install:
+```bash
+git clone https://github.com/jkiesele/FastGraphCompute.git
+cd FastGraphCompute
+pip install .
 ```
 
-And install
-```
-pip3 install -v --user --no-deps --no-build-isolation .
-```
-Here, the build isolation mode is important because this way, `pip` will not install dozens of packages every time. The
-installation is fairly fast so even while developing, I'd recommend simply installing the package every time you modify
-it.
+## Usage
 
-**Important:** go inside `test` directory (don't run from parent directory). Once inside, just run the test case:
-```
-python3 -m unittest Test_bin_by_coordinates.TestBinByCoordinates
+FastGraphCompute provides multiple modules for efficient graph-based operations. The key modules are:
+
+### GravNetOp
+Located in `fastgraphcompute/gnn_ops.py`, the `GravNetOp` implements a layer of the GravNet algorithm [arXiv:1902.07987] designed to learn local graph structures based on spatial coordinates.
+
+#### Example Usage:
+```python
+import torch
+from fastgraphcompute.gnn_ops import GravNetOp
+
+model = GravNetOp(in_channels=8, out_channels=16, space_dimensions=4, propagate_dimensions=8, k=20)
+input_tensor = torch.rand(32, 8)
+# row split format, cutting the 32 x 8 array into individual samples / events
+# one with 18 entries, one with 14 entries. 
+row_splits = torch.tensor([0, 18, 32], dtype=torch.int32) 
+output, neighbor_idx, distsq, S_space = model(input_tensor, row_splits)
+print(output.shape)  # Expected output: (32, 16)
 ```
 
-Or run one specific test case:
-```
-python3 -m unittest Test_bin_by_coordinates.TestBinByCoordinates.test_large_scale_cuda
+### Object Condensation Loss
+Defined in `fastgraphcompute/object_condensation.py`, this module implements the object condensation loss [arXiv:2002.03605].
+
+#### Example Usage:
+```python
+from fastgraphcompute.object_condensation import ObjectCondensation
+
+loss_fn = ObjectCondensation(q_min=0.1, s_B=1.0)
+# between 0 and 1
+beta = torch.rand(32).unsqueeze(1) # by convention B x 1
+coords = torch.rand(32, 3) 
+# integers that determine the association of points to objects (>=0), -1 is reated as noise
+asso_idx = torch.randint(0, 10, (32,), dtype=torch.int32).unsqueeze(1)
+row_splits = torch.tensor([0, 18, 32], dtype=torch.int32) 
+L_att, L_rep, L_beta, payload_scaling, _ = loss_fn(beta, coords, asso_idx, row_splits)
 ```
 
-Enjoy development!
 
+## Development Guide
+
+### Setting Up for Development
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/jkiesele/FastGraphCompute.git
+   cd FastGraphCompute
+   ```
+
+2. Install dependencies manually (as there is no `requirements.txt`):
+   ```bash
+   pip install torch==2.5.0 torchvision==0.20.0 torchaudio==2.5.0 --index-url https://download.pytorch.org/whl/cu121
+   pip install cmake setuptools wheel torch_geometric pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv
+   ```
+
+3. Compile extensions:
+   ```bash
+   python setup.py develop
+   ```
+
+### Running Tests
+To verify installation and correctness, run:
+```bash
+pytest tests/
+```
+
+### Contributing
+- Ensure code adheres to PEP8.
+- Use meaningful commit messages.
+- Submit pull requests with detailed explanations.
+
+## License
+This project is licensed under the MIT License. See `LICENSE` for details.
+
+## Acknowledgments
+FastGraphCompute is developed as part of research efforts in graph-based deep learning. Contributions are welcome!
 
