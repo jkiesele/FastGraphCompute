@@ -226,6 +226,22 @@ class TestObjectCondensation(unittest.TestCase):
         self.assertTrue(pl_scaling.shape == torch.Size([4, 1]), f"pl_scaling shape: {pl_scaling.shape}, expected shape: {torch.Size([4, 1])}")
         self.assertTrue(L_V_rep.shape == torch.Size([4, 1]), f"L_V_rep shape: {L_V_rep.shape}, expected shape: {torch.Size([4, 1])}")
 
+    def test_full_run_cuda(self):
+        '''
+        test if it runs on CUDA without errors
+        '''
+        x = torch.tensor([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]], dtype=torch.float32).to('cuda')
+        asso_indices = torch.tensor([[0], [1], [1], [-1]], dtype=torch.int32).to('cuda')
+        beta = torch.tensor([[0.1], [0.9], [0.5], [0.6]], dtype=torch.float32).to('cuda')
+        row_splits = torch.tensor([0, 2, 4], dtype=torch.int32).to('cuda')
+        L_V, L_rep, L_b, pl_scaling, L_V_rep = self.oc(beta, x, asso_indices, row_splits)
+        self.assertTrue(L_V.device.type == 'cuda')
+        self.assertTrue(L_rep.device.type == 'cuda')
+        self.assertTrue(L_b.device.type == 'cuda')
+        self.assertTrue(pl_scaling.device.type == 'cuda')
+        self.assertTrue(L_V_rep.device.type == 'cuda')
+
+
     
 
 import unittest

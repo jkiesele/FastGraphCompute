@@ -143,7 +143,7 @@ class ObjectCondensation(torch.nn.Module):
             x_k_1 (torch.Tensor): The values to scatter, shape (K, M, 1)
         '''
         # Step 1: Use select_with_default to get indices
-        M2 = select_with_default(M, torch.arange(asso_indices.size(0)).view(-1, 1), -1)
+        M2 = select_with_default(M, torch.arange(asso_indices.size(0), device=asso_indices.device).view(-1, 1), -1)
         
         # Step 3: Flatten valid entries in M2
         valid_mask = M2 >= 0
@@ -166,10 +166,10 @@ class ObjectCondensation(torch.nn.Module):
         lengths = row_splits[1:] - row_splits[:-1]
         
         # Create indices for each row split
-        row_indices = torch.repeat_interleave(torch.arange(len(lengths)), lengths)
+        row_indices = torch.repeat_interleave(torch.arange(len(lengths), device=row_splits.device), lengths)
         
         # Calculate sum per row split
-        sum_per_split = torch.zeros(len(lengths), dtype=torch.float32).scatter_add(0, row_indices, x.squeeze(1))
+        sum_per_split = torch.zeros(len(lengths), dtype=torch.float32, device=row_splits.device).scatter_add(0, row_indices, x.squeeze(1))
         return sum_per_split / lengths
     
     def _beta_loss(self, beta_k_m):

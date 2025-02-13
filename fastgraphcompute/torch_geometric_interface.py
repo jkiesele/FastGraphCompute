@@ -65,6 +65,6 @@ def strict_batch_from_row_splits(row_splits):
     lengths = row_splits[1:] - row_splits[:-1]
     
     # Use repeat_interleave to assign batch indices
-    batch = torch.repeat_interleave(torch.arange(len(lengths), dtype=torch.long), lengths)
+    batch = torch.repeat_interleave(torch.arange(len(lengths), dtype=torch.long, device=row_splits.device), lengths)
     
     return batch
