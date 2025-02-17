@@ -121,17 +121,19 @@ for ext in extensions: print(repr_ext(ext))
 print('---------------------')
 
 # Number of parallel jobs, defaulting to all available CPUs if not specified
-num_jobs = os.getenv('NUM_PARALLEL_JOBS', '0')
-make_args = []
-if num_jobs != '0':
-    make_args = [f'-j{num_jobs}']
+NUM_JOBS = os.getenv('NUM_PARALLEL_JOBS', str(os.cpu_count()))  # Default to all CPU cores
+MAKE_ARGS = [f"-j{NUM_JOBS}"] if NUM_JOBS != "0" else []
 
 setup(
     name='fastgraphcompute',
     ext_modules=extensions if not BUILD_DOCS else [],
     packages=find_packages(),  # Automatically find packages
     cmdclass={
-        'build_ext': BuildExtension.with_options(no_python_abi_suffix=True, use_ninja=False, parallel=True, make_args=make_args)
+        'build_ext': BuildExtension.with_options(no_python_abi_suffix=True, 
+                                                 use_ninja=True, 
+                                                 parallel=True, 
+                                                 make_args=MAKE_ARGS,
+        cmake_process_args=[f"-DCMAKE_BUILD_PARALLEL_LEVEL={NUM_JOBS}"])
     },
 )
 

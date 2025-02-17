@@ -3,6 +3,7 @@ import numpy as np
 import unittest
 import os.path as osp
 import fastgraphcompute.extensions
+from fastgraphcompute import bin_by_coordinates
 
 # Load the shared library
 cpu_so_file = osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'bin_by_coordinates_cpu.so')
@@ -144,9 +145,9 @@ class TestBinByCoordinates(unittest.TestCase):
         return torch.repeat_interleave(torch.arange(len(lengths), dtype=torch.long), lengths)
 
 
-    def do_large_scale(self, cuda=False, ndims=2):
+    def do_large_scale(self, cuda=False, ndims=2, scaling = 5.):
         # Test with a larger scale of coordinates
-        coordinates = torch.rand((1000, ndims)) * 5  # Coordinates in the range [0, 5]
+        coordinates = torch.rand((1000, ndims)) * scaling  # Coordinates in the range [0, 5]
         # extend bin width and nbins
         bin_width = torch.tensor([0.5], dtype=torch.float32)  # Example: 0.5 units per bin
         nbins = torch.tensor([10]*ndims, dtype=torch.int32)  # Example: 10x10 grid
@@ -195,12 +196,40 @@ class TestBinByCoordinates(unittest.TestCase):
     def test_large_scale_cpu(self):
         self.do_large_scale(cuda=False)
 
+
+    @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
+    def test_large_scale_large_spread_cuda(self):
+        self.do_large_scale(cuda=True, scaling=1000.)
+
+    def test_large_scale_large_spread_cpu(self):
+        self.do_large_scale(cuda=False, scaling=1000.)
+
     @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
     def test_large_scale_cuda4D(self):
         self.do_large_scale(cuda=True, ndims=4)
 
     def test_large_scale_cpu4D(self):
         self.do_large_scale(cuda=False, ndims=4)
+
+    def do_test_with_wrapper_on_data(self, device='cpu'):
+
+        #run the whole wrapper here
+        data = np.load('test_bbc_data.npy', allow_pickle=True)
+        coordinates = torch.tensor(data, device=device)
+        #one row split
+        row_splits = torch.tensor([0, coordinates.size(0)], dtype=torch.int32, device=device)
+        #use dynamic bin width
+
+        bin_indices, flat_bin_indices, n_bins, bin_width, n_per_bin = bin_by_coordinates(coordinates, row_splits, n_bins=21)
+
+    def test_with_wrapper_on_data_cpu(self):
+        self.do_test_with_wrapper_on_data(device='cpu')
+
+    @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
+    def test_with_wrapper_on_data_cuda(self):
+        self.do_test_with_wrapper_on_data(device='cuda')
+        
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -35,17 +35,37 @@ static void calc(
 
     int mul = 1;
     int idx = 0;
+    const float epsilon = 1e-6f;
 
     for (int ic = n_coords-1; ic != -1; ic--) {
+        
+        float coord = d_coords[I2D(iv, ic, n_coords)]; 
+        float scaled = coord / d_binswidth[0]; 
+        int cidx = (int)floorf(scaled + epsilon);  
 
-        int cidx = d_coords[I2D(iv,ic,n_coords)] / d_binswidth[0];
-
-        if(cidx < 0 || cidx >= n_bins[ic]){
-            printf("Fatal error: index %d of coordinate %d exceeds n bins %d\n",cidx,ic,n_bins[ic]);
-            cidx = n_bins[ic] - 1;
+        if(cidx < 0) {
+            printf("Warning: Thread %d, coordinate %d (%f) yields negative bin index (%d). Clamping to 0.\n", iv, ic, coord, cidx);
+            cidx = 0;
+        }
+        else if(cidx >= n_bins[ic]) {
+            /* For upper boundary, check if the coordinate is within a small threshold of the boundary.
+             * If so, silently clamp; otherwise, print a warning. */
+            float upper_bound = n_bins[ic] * d_binswidth[0];
+            if (cidx == n_bins[ic] && fabs(coord - upper_bound) < epsilon * 10) {
+                // Silent clamp for coordinate exactly at the upper boundary
+                cidx = n_bins[ic] - 1;
+            } else {
+                printf("Warning: Thread %d, coordinate %d (%f) yields bin index %d out of range [0, %d). Clamping to %d.\n", 
+                       iv, ic, coord, cidx, n_bins[ic], n_bins[ic]-1);
+                cidx = n_bins[ic] - 1;
+            }
         }
         d_assigned_bin[I2D(iv,ic+1,n_coords+1)]=cidx;
 
+        if(n_bins[ic] > 0 && mul > INT_MAX / n_bins[ic]) {
+            printf("ERROR: Integer overflow detected in thread %d at coordinate %d during multiplication. Aborting computation.\n", iv, ic);
+            return;
+        }
         idx += cidx * mul;
         mul *= n_bins[ic];
 
@@ -59,7 +79,11 @@ static void calc(
         }
         rsidx++;
     }
-
+    
+    if(mul > INT_MAX / (rsidx + 1)) {
+        printf("ERROR: Integer overflow detected in thread %d when adding row-split index. Aborting computation.\n", iv);
+        return;
+    }
     idx += rsidx * mul;
 
     if(idx>=n_total_bins){

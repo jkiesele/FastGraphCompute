@@ -42,7 +42,7 @@ def bin_by_coordinates(coordinates, row_splits, bin_width=None, n_bins=None, cal
 
     # Calculate max coordinates and ensure there's a small range to avoid zero-range bins
     dmax_coords = torch.max(coordinates, dim=0).values
-    dmax_coords = torch.where(torch.min(coordinates, dim=0).values == dmax_coords, dmax_coords + 1.0, dmax_coords) + 1e-3
+    dmax_coords = torch.where(torch.min(coordinates, dim=0).values == dmax_coords, dmax_coords + 1.0, dmax_coords) + 1e-3 # possibly too small for large coords
     dmax_coords = torch.where(torch.isfinite(dmax_coords), dmax_coords, torch.tensor(1.0))
 
     # Ensure that the maximum coordinates are greater than 0
