@@ -29,7 +29,7 @@ static void calc(
 
         int mul = 1;
         int idx = 0;
-        const float epsilon = 1e-6f;
+        const float epsilon = 1e-3f;
 
         for (int ic = n_coords-1; ic > -1; ic--) {
 
@@ -38,7 +38,7 @@ static void calc(
             int cidx = (int)floorf(scaled + epsilon);  
 
             if(cidx < 0) {
-                printf("Warning: Thread %d, coordinate %d (%f) yields negative bin index (%d). Clamping to 0.\n", iv, ic, coord, cidx);
+                printf("Warning: Vertex %d, coordinate %d (%f) yields negative bin index (%d). Clamping to 0.\n", iv, ic, coord, cidx);
                 cidx = 0;
             }
             else if(cidx >= n_bins[ic]) {
@@ -49,7 +49,7 @@ static void calc(
                     // Silent clamp for coordinate exactly at the upper boundary
                     cidx = n_bins[ic] - 1;
                 } else {
-                    printf("Warning: Thread %d, coordinate %d (%f) yields bin index %d out of range [0, %d). Clamping to %d.\n", 
+                    printf("Warning: Vertex %d, coordinate %d (%f) yields bin index %d out of range [0, %d). Clamping to %d.\n", 
                            iv, ic, coord, cidx, n_bins[ic], n_bins[ic]-1);
                     cidx = n_bins[ic] - 1;
                 }

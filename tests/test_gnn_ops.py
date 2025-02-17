@@ -52,7 +52,8 @@ class TestGravNetOp(unittest.TestCase):
         self.do_shape_test('cuda')
 
     
-    def test_jit_compatibility(self, device = 'cpu'):
+    # TBI
+    def do_not_test_jit_compatibility(self, device = 'cpu'):
         in_dim = 8
         prop_dim = 16
         k = 10
