@@ -129,13 +129,11 @@ class _BinnedKNNFunction(torch.autograd.Function):
         # Retrieve saved tensors from forward pass
         idx, dist, coords = ctx.saved_tensors
 
-        if grad_dist.device.type == 'cuda':
-            op = torch.ops.binned_select_knn_grad_cuda.binned_select_knn_grad_cuda
-        else:
-            op = torch.ops.binned_select_knn_grad_cpu.binned_select_knn_grad_cpu
-
         # Call your custom operation for computing coordinate gradients
-        grad_coordinates = op(grad_dist, idx, dist, coords)
+        if grad_dist.device.type == 'cuda':
+            grad_coordinates = torch.ops.binned_select_knn_grad_cuda.binned_select_knn_grad_cuda(grad_dist, idx, dist, coords)
+        else:
+            grad_coordinates = torch.ops.binned_select_knn_grad_cpu.binned_select_knn_grad_cpu(grad_dist, idx, dist, coords)
         #print all names and shapes
         
         # Return gradients for each input; return None for inputs that don't require gradients
