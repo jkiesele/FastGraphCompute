@@ -108,3 +108,4 @@ class GravNetOp(torch.nn.Module):
         # Step 8: Apply final transformation to get output features
         out = self.output_transformations(output)
         return out, neighbor_idx, distsq, space
+        # return out, neighbor_idx, space

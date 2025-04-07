@@ -17,7 +17,7 @@ class SimpleGravNetModel(torch.nn.Module):
             optimization_arguments={}
         )
         self.scripted_gravnet = torch.jit.script(self.gravnet)
-        print(type(self.scripted_gravnet))
+        print("Gravenet Type: ", type(self.scripted_gravnet))
         self.fc = torch.nn.Linear(prop_dim, prop_dim)
 
     def forward(self, x, row_splits):

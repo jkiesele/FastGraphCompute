@@ -64,7 +64,7 @@ class _BinnedKNNFunction(torch.autograd.Function):
                 direction: Optional[torch.Tensor] = None, 
                 n_bins: Optional[torch.Tensor] = None, 
                 max_bin_dims: int = 3, 
-                torch_compatible_indices: bool =False)  -> Tuple[torch.Tensor, torch.Tensor]:
+                torch_compatible_indices: bool =False):
         
         # Estimate a good number of bins for homogeneous distributions
         elems_per_rs = torch.max(row_splits) / row_splits.shape[0]
@@ -123,6 +123,7 @@ class _BinnedKNNFunction(torch.autograd.Function):
         ctx.save_for_backward(idx, dist, coords)
         
         return (idx, dist)
+        # return idx
         
     @staticmethod
     def backward(ctx, grad_idx, grad_dist):
@@ -177,4 +178,5 @@ def binned_select_knn(K: int,
     if coords.dtype != torch.float32:
         coords = coords.to(dtype=torch.float32)
 
-    return _BinnedKNNFunction.apply(coords, row_splits, K, direction, n_bins, max_bin_dims, torch_compatible_indices)
+    idx, dist = _BinnedKNNFunction.apply(coords, row_splits, K, direction, n_bins, max_bin_dims, torch_compatible_indices)
+    return idx, dist
