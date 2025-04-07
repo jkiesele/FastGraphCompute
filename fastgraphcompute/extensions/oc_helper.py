@@ -11,7 +11,7 @@ if torch.cuda.is_available():
 
 max_same_valued_entries_per_row_split = torch.ops.oc_helper_helper.max_same_valued_entries_per_row_split
 
-
+@torch.jit.script
 def _helper_inputs(truth_indices, row_splits, filter_negative: bool = True):
     """
     Processes the `truth_indices` tensor by splitting it according to `row_splits`,
@@ -134,11 +134,12 @@ def _helper_inputs(truth_indices, row_splits, filter_negative: bool = True):
     return unique_vals, unique_row_splits, max_same_unique_per_split, lengths, max_length, objects_per_split
 
 #for jit
+@torch.jit.script
 def _helper_inputs_filter(truth_indices, row_splits):
     return _helper_inputs(truth_indices, row_splits, filter_negative=True)
 
 
-
+@torch.jit.script
 def oc_helper_matrices(
         truth_idxs: torch.Tensor,
         row_splits: torch.Tensor,
@@ -166,16 +167,12 @@ def oc_helper_matrices(
                       The dimensionality is (N_objects, N_max_points_per_row_split).
                       The matrix is not sorted by row splits anymore.
                       Can be used in conjunction with select_with_default to select the points.
+        torch.Tensor: The number of objects per row split as a 1D tensor of shape (len(row_splits)-1).
     """
 
-    # Sanity check: ensure both tensors are on the same device
-    assert truth_idxs.device == row_splits.device, "Both truth_idxs and row_splits must be on the same device"
+    # Torch Compatible Sanity check: ensure both tensors are on the same device
+    torch._assert(truth_idxs.device == row_splits.device, "Both truth_idxs and row_splits must be on the same device")
     
-    if truth_idxs.device.type == 'cuda':
-        op = torch.ops.oc_helper_cuda.oc_helper_cuda
-    else:
-        op = torch.ops.oc_helper_cpu.oc_helper_cpu
-
     # get the helper inputs filtered
     unique_idxs, unique_rs_asso, max_n_unique_over_splits, _, max_n_in_splits, obj_per_split = _helper_inputs_filter(truth_idxs, row_splits)
 
@@ -198,22 +195,32 @@ def oc_helper_matrices(
     bool calc_m_not
     '''
     # Call the C++ or CUDA operation
-    M, M_not = op(
-        truth_idxs,
-        unique_idxs, 
-        unique_rs_asso,
-        row_splits,
-        max_n_unique_over_splits, 
-        max_n_in_splits,
-        calc_m_not)
-    
-    return M, M_not, obj_per_split
 
+    if truth_idxs.device.type == 'cuda':
+        M, M_not = torch.ops.oc_helper_cuda.oc_helper_cuda(
+            truth_idxs,
+            unique_idxs, 
+            unique_rs_asso,
+            row_splits,
+            max_n_unique_over_splits, 
+            max_n_in_splits,
+            calc_m_not)
+        return M, M_not, obj_per_split
+    else:
+        M, M_not = torch.ops.oc_helper_cpu.oc_helper_cpu(
+            truth_idxs,
+            unique_idxs, 
+            unique_rs_asso,
+            row_splits,
+            max_n_unique_over_splits, 
+            max_n_in_splits,
+            calc_m_not)
+        return M, M_not, obj_per_split
 
-
+@torch.jit.script
 def select_with_default(idx: torch.Tensor,
                         feat: torch.Tensor,
-                        default_value):
+                        default_value: float) -> torch.Tensor:
     """
     Select features from 'feat' using indices from 'idx', replacing invalid indices (-1) with 'default_value'.
 
@@ -249,3 +256,6 @@ def select_with_default(idx: torch.Tensor,
     output[valid_positions[:, 0], valid_positions[:, 1]] = selected_feat
 
     return output
+
+# test jit scripted
+# print(type(select_with_default))

@@ -169,7 +169,6 @@ torch::Tensor binned_select_knn_grad_cpu(
     else {
         throw std::invalid_argument("Unsupported tensor type for bin_idx.");
     }
-
     return grad_coords;
 }
 

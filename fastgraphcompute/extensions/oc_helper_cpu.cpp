@@ -35,7 +35,7 @@ static void calc_m(
             int end_vertex = rs[uqidx_i_rs+1];
 
             if(end_vertex > n_vert){
-                printf("Error: end_vertex %d is larger than n_vert %d, setting end_vertex to n_vert. Check the inputs!\n", end_vertex, n_vert);
+                TORCH_WARN("end_vertex ", end_vertex, " is larger than n_vert ", n_vert, ", setting end_vertex to n_vert. Check the inputs!");
                 end_vertex = n_vert;
             }
 
@@ -46,10 +46,9 @@ static void calc_m(
                     M[I2D(fill_counter, k, n_unique)] = i_v;
                     fill_counter++;
                     if(fill_counter > n_maxuq){
-                        printf("Error: fill_counter %d is larger than n_maxuq in first M loop %d\n", fill_counter, n_maxuq);
+                        TORCH_WARN("fill_counter ", fill_counter, " is larger than n_maxuq ", n_maxuq, ", breaking.");
                         break;
                     }
-                
                 }
             }
 
@@ -66,7 +65,7 @@ static void calc_m(
                         M_not[I2D(fill_counter, k, n_unique)] = i_v;
                         fill_counter++;
                         if(fill_counter > n_maxrs){
-                            printf("Error: fill_counter %d is larger than n_maxrs in first M_not loop %d\n", fill_counter, n_maxrs);
+                            TORCH_WARN("fill_counter ", fill_counter, " is larger than n_maxrs ", n_maxrs, ", breaking.");
                             break;
                         }
                     }
@@ -86,43 +85,30 @@ static void check_all_inputs(
     torch::Tensor max_n_unique_over_splits,
     torch::Tensor max_n_in_splits) {
 
-    if(max_n_unique_over_splits.size(0) != 1){
-        throw std::invalid_argument("max_n_unique_over_splits should have size 1");
-    }
+    TORCH_CHECK(max_n_unique_over_splits.size(0) == 1, "max_n_unique_over_splits should have size 1");
+    
+    TORCH_CHECK(max_n_in_splits.size(0) == 1, "max_n_in_splits should have size 1");
 
-    if(max_n_in_splits.size(0) != 1){
-        throw std::invalid_argument("max_n_in_splits should have size 1");
-    }
+    TORCH_CHECK(asso_idx.is_contiguous() && asso_idx.dtype() == torch::kInt32, 
+        "asso_idx should be contiguous and of type int32");
 
-    if(!asso_idx.is_contiguous() || asso_idx.dtype() != torch::kInt32){
-        throw std::invalid_argument("asso_idx should be contiguous and of type int32");
-    }
+    TORCH_CHECK(unique_idx.is_contiguous() && unique_idx.dtype() == torch::kInt32, 
+        "unique_idx should be contiguous and of type int32");
 
-    if(!unique_idx.is_contiguous() || unique_idx.dtype() != torch::kInt32){
-        throw std::invalid_argument("unique_idx should be contiguous and of type int32");
-    }
+    TORCH_CHECK(unique_rs_asso.is_contiguous() && unique_rs_asso.dtype() == torch::kInt32, 
+        "unique_rs_asso should be contiguous and of type int32");
 
-    if(!unique_rs_asso.is_contiguous() || unique_rs_asso.dtype() != torch::kInt32){
-        throw std::invalid_argument("unique_rs_asso should be contiguous and of type int32");
-    }
+    TORCH_CHECK(rs.is_contiguous() && rs.dtype() == torch::kInt32, "rs should be contiguous and of type int32");
 
-    if(!rs.is_contiguous() || rs.dtype() != torch::kInt32){
-        throw std::invalid_argument("rs should be contiguous and of type int32");
-    }
+    TORCH_CHECK(max_n_unique_over_splits.is_contiguous() && max_n_unique_over_splits.dtype() == torch::kInt32, 
+        "max_n_unique_over_splits should be contiguous and of type int32");
 
-    if(!max_n_unique_over_splits.is_contiguous() || max_n_unique_over_splits.dtype() != torch::kInt32){
-        throw std::invalid_argument("max_n_unique_over_splits should be contiguous and of type int32");
-    }
+    TORCH_CHECK(max_n_in_splits.is_contiguous() && max_n_in_splits.dtype() == torch::kInt32, 
+        "max_n_in_splits should be contiguous and of type int32");
 
-    if(!max_n_in_splits.is_contiguous() || max_n_in_splits.dtype() != torch::kInt32){
-        throw std::invalid_argument("max_n_in_splits should be contiguous and of type int32");
-    }
-
-    if(asso_idx.device() != unique_idx.device() || asso_idx.device() != unique_rs_asso.device() || 
-       asso_idx.device() != rs.device() || asso_idx.device() != max_n_unique_over_splits.device() || 
-       asso_idx.device() != max_n_in_splits.device()){
-        throw std::invalid_argument("All inputs should be on the same device");
-    }
+    TORCH_CHECK(asso_idx.device() == unique_idx.device() && asso_idx.device() == unique_rs_asso.device() && 
+        asso_idx.device() == rs.device() && asso_idx.device() == max_n_unique_over_splits.device() && 
+        asso_idx.device() == max_n_in_splits.device(), "All inputs should be on the same device");
 }
 
 std::tuple<torch::Tensor, torch::Tensor> oc_helper_cpu(

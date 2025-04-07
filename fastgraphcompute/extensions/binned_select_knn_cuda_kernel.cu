@@ -6,7 +6,16 @@
 #include "cuda_helpers.h"
 #include "helpers.h"
 #include <vector>
+#include <c10/macros/Macros.h>
 
+#define C10_CUDA_KERNEL_LAUNCH_CHECK() {                         \
+    cudaError_t err = cudaGetLastError();                        \
+    if (err != cudaSuccess) {                                    \
+        printf("CUDA Kernel launch error: %s\n",                 \
+               cudaGetErrorString(err));                         \
+        exit(EXIT_FAILURE);                                      \
+    }                                                            \
+}
 
 __device__
 static float calculateDistance(size_t i_v, size_t j_v, const float * d_coord, size_t n_coords){
@@ -259,7 +268,8 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
     grid_and_block gb(n_vert,512);
 
     setDefaults<<<gb_set_def.grid(),gb_set_def.block()>>>(indices.data_ptr<int32_t>(), distances.data_ptr<float>(), tf_compat, n_vert, K);
-    
+    C10_CUDA_KERNEL_LAUNCH_CHECK();
+
     cudaDeviceSynchronize();
     
     if (bin_idx.scalar_type() == torch::kInt32) {
@@ -337,6 +347,7 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
         else{
             throw std::invalid_argument("Unsupported number of binning dimensions.");
         }
+        C10_CUDA_KERNEL_LAUNCH_CHECK();
     } else {
         throw std::invalid_argument("Unsupported tensor type for bin_idx.");
     }

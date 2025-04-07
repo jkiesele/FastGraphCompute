@@ -17,7 +17,7 @@ if torch.cuda.is_available():
 
 
 #just a wrapper function to call the custom extension
-#@torch.jit.script
+# @torch.jit.script
 def _binned_select_knn(
     K: int,
     coordinates: torch.Tensor,
@@ -26,13 +26,8 @@ def _binned_select_knn(
     bin_boundaries: torch.Tensor,
     n_bins: torch.Tensor, 
     bin_width: torch.Tensor , 
-    torch_compatible_indices: bool =False,
+    torch_compatible_indices: bool = False,
     direction : Optional[torch.Tensor] = None):
-
-    if coordinates.device.type == 'cuda':
-        op = torch.ops.binned_select_knn_cuda.binned_select_knn_cuda
-    else:
-        op = torch.ops.binned_select_knn_cpu.binned_select_knn_cpu
 
     #check if direction is None, if so create an empty tensor
     if direction is None:
@@ -48,8 +43,14 @@ def _binned_select_knn(
     #assert_same_dtype(bin_idx, dim_bin_idx, bin_boundaries, n_bins, direction_input)
     #assert_same_dtype(coordinates, bin_width)
 
-    idx, dist = op(coordinates, bin_idx, dim_bin_idx, bin_boundaries, n_bins, bin_width,
-              direction_input, torch_compatible_indices, direction is not None, K)
+    if coordinates.device.type == 'cuda':
+        idx, dist = torch.ops.binned_select_knn_cuda.binned_select_knn_cuda(
+            coordinates, bin_idx, dim_bin_idx, bin_boundaries, n_bins, bin_width,
+            direction_input, torch_compatible_indices, direction is not None, K)
+    else:
+        idx, dist = torch.ops.binned_select_knn_cpu.binned_select_knn_cpu(
+            coordinates, bin_idx, dim_bin_idx, bin_boundaries, n_bins, bin_width,
+            direction_input, torch_compatible_indices, direction is not None, K)
 
     return idx, dist
 
@@ -164,6 +165,18 @@ def binned_select_knn(K: int,
     Returns:
         Tuple[torch.Tensor, torch.Tensor]: Indices and distances of the nearest neighbors.
     """
-    return _BinnedKNNFunction.apply(coords, row_splits, K, direction, n_bins, max_bin_dims, torch_compatible_indices)
-    
+    # Type checking for JIT compatibility
+    if not isinstance(K, int):
+        K = int(K)
+    if not isinstance(max_bin_dims, int):
+        max_bin_dims = int(max_bin_dims)
+        
+    # Ensure row_splits is a tensor
+    if not isinstance(row_splits, torch.Tensor):
+        row_splits = torch.tensor(row_splits, dtype=torch.int32, device=coords.device)
+        
+    # Ensure coordinates are float32 for CUDA kernel compatibility
+    if coords.dtype != torch.float32:
+        coords = coords.to(dtype=torch.float32)
 
+    return _BinnedKNNFunction.apply(coords, row_splits, K, direction, n_bins, max_bin_dims, torch_compatible_indices)

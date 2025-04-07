@@ -4,16 +4,25 @@
 #include <vector>
 #include "cuda_helpers.h"
 #include "helpers.h"
+#include <c10/macros/Macros.h>
 
 #define CHECK_CUDA(x) TORCH_CHECK(x.device().is_cuda(), #x " must be a CUDA tensor")
 #define CHECK_CONTIGUOUS(x) TORCH_CHECK(x.is_contiguous(), #x " must be contiguous")
 #define CHECK_INPUT(x) CHECK_CUDA(x); CHECK_CONTIGUOUS(x)
 
+#define C10_CUDA_KERNEL_LAUNCH_CHECK() {                         \
+    cudaError_t err = cudaGetLastError();                        \
+    if (err != cudaSuccess) {                                    \
+        printf("CUDA Kernel launch error: %s\n",                 \
+               cudaGetErrorString(err));                         \
+        exit(EXIT_FAILURE);                                      \
+    }                                                            \
+}
+
 __global__
-static void calc(
+void calc(
         const float * d_coords,
         const int * d_rs,
-
         const float * d_binswidth, //singleton
         const int * n_bins,
 
@@ -123,15 +132,20 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> bin_by_coordinates_cuda_
     const auto n_nbins = nbins.size(0);
 
     //check if bin_width is a singleton
-    if (bin_width.size(0) != 1) {
-        throw std::invalid_argument("bin_by_coordinates_cpu: bin_width must be a singleton tensor");
-    }
+    TORCH_CHECK(bin_width.size(0) == 1, "bin_by_coordinates_cuda: bin_width must be a singleton tensor");
 
-    // throw exception if n_coords is not nbins.size(0)
-    if (n_coords != nbins.size(0)) {
-        throw std::invalid_argument("bin_by_coordinates_cpu: coordinates.size(1) must be equal to nbins.size(0)");
-    }
+    // Check if n_coords is equal to nbins.size(0)
+    TORCH_CHECK(n_coords == nbins.size(0), "bin_by_coordinates_cuda: coordinates.size(1) must be equal to nbins.size(0)");
+
     const auto n_total_bins = nbins.to(torch::kCPU).prod().item<int>() * (n_rs - 1);
+
+    // // Use device-side computation for n_total_bins to avoid CPU transfer
+    // int64_t n_total_bins = 1;
+    // auto nbins_accessor = nbins.accessor<int32_t, 1>();
+    // for (int i = 0; i < n_nbins; i++) {
+    //     n_total_bins *= nbins_accessor[i];
+    // }
+    // n_total_bins *= (n_rs - 1);
     
     auto output_n_per_bin_tensor = torch::zeros({ n_total_bins }, torch::TensorOptions().dtype(torch::kInt32).device(coordinates.device()));
     auto output_assigned_bin_tensor = torch::zeros({ n_vert, n_coords + 1 }, torch::TensorOptions().dtype(torch::kInt32).device(coordinates.device()));
@@ -154,6 +168,8 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> bin_by_coordinates_cuda_
         n_rs,
         n_total_bins,
         calc_n_per_bin);
+    
+    C10_CUDA_KERNEL_LAUNCH_CHECK();
 
     return std::make_tuple(output_assigned_bin_tensor, output_flat_assigned_bin_tensor, output_n_per_bin_tensor);
 }

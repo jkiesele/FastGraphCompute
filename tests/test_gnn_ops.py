@@ -1,5 +1,6 @@
 import unittest
 import torch
+import fastgraphcompute
 from fastgraphcompute.gnn_ops import GravNetOp
 
 
@@ -15,14 +16,34 @@ class SimpleGravNetModel(torch.nn.Module):
             # Ensure that any additional arguments are TorchScript compatible
             optimization_arguments={}
         )
+        self.scripted_gravnet = torch.jit.script(self.gravnet)
+        print(type(self.scripted_gravnet))
         self.fc = torch.nn.Linear(prop_dim, prop_dim)
 
     def forward(self, x, row_splits):
-        x, *_ = self.gravnet(x, row_splits)
+        x, *_ = self.scripted_gravnet(x, row_splits)
         x = self.fc(x)
         return x
 
 class TestGravNetOp(unittest.TestCase):
+
+    def test_jit_script_compatibility(self):
+        device = 'cpu'
+        in_dim, prop_dim, s, k = 8, 16, 3, 8
+        model = SimpleGravNetModel(in_dim, prop_dim, s, k).to(device)
+        
+        try:
+            scripted_model = torch.jit.script(model)
+            x = torch.randn(100, in_dim).to(device)
+            row_splits = torch.tensor([0, 50, 100], dtype=torch.int32).to(device)
+            
+            with torch.no_grad():
+                output = scripted_model(x, row_splits)
+            
+            self.assertIsNotNone(output)
+            self.assertEqual(output.shape, (100, prop_dim))
+        except Exception as e:
+            self.fail(f"Failed to script GravNetOp: {str(e)}")
 
     def do_shape_test(self, device):
 

@@ -4,7 +4,16 @@
 #include <cuda_runtime.h>
 #include "helpers.h"
 #include "cuda_helpers.h"
+#include <c10/macros/Macros.h>
 
+#define C10_CUDA_KERNEL_LAUNCH_CHECK() {                         \
+    cudaError_t err = cudaGetLastError();                        \
+    if (err != cudaSuccess) {                                    \
+        printf("CUDA Kernel launch error: %s\n",                 \
+               cudaGetErrorString(err));                         \
+        exit(EXIT_FAILURE);                                      \
+    }                                                            \
+}
 
 template <typename T>
 __global__
@@ -164,6 +173,7 @@ torch::Tensor binned_select_knn_grad_cuda_fn(
     else {
         throw std::invalid_argument("Unsupported tensor type for bin_idx.");
     }
+    C10_CUDA_KERNEL_LAUNCH_CHECK();
 
     return grad_coords;
 }

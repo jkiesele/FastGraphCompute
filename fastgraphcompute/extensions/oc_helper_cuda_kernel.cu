@@ -120,43 +120,31 @@ static void check_all_inputs(
     torch::Tensor max_n_unique_over_splits,
     torch::Tensor max_n_in_splits) {
 
-    if(max_n_unique_over_splits.size(0) != 1){
-        throw std::invalid_argument("max_n_unique_over_splits should have size 1");
-    }
-
-    if(max_n_in_splits.size(0) != 1){
-        throw std::invalid_argument("max_n_in_splits should have size 1");
-    }
-
-    if(!asso_idx.is_contiguous() || asso_idx.dtype() != torch::kInt32){
-        throw std::invalid_argument("asso_idx should be contiguous and of type int32");
-    }
-
-    if(!unique_idx.is_contiguous() || unique_idx.dtype() != torch::kInt32){
-        throw std::invalid_argument("unique_idx should be contiguous and of type int32");
-    }
-
-    if(!unique_rs_asso.is_contiguous() || unique_rs_asso.dtype() != torch::kInt32){
-        throw std::invalid_argument("unique_rs_asso should be contiguous and of type int32");
-    }
-
-    if(!rs.is_contiguous() || rs.dtype() != torch::kInt32){
-        throw std::invalid_argument("rs should be contiguous and of type int32");
-    }
-
-    if(!max_n_unique_over_splits.is_contiguous() || max_n_unique_over_splits.dtype() != torch::kInt32){
-        throw std::invalid_argument("max_n_unique_over_splits should be contiguous and of type int32");
-    }
-
-    if(!max_n_in_splits.is_contiguous() || max_n_in_splits.dtype() != torch::kInt32){
-        throw std::invalid_argument("max_n_in_splits should be contiguous and of type int32");
-    }
-
-    if(asso_idx.device() != unique_idx.device() || asso_idx.device() != unique_rs_asso.device() || 
-       asso_idx.device() != rs.device() || asso_idx.device() != max_n_unique_over_splits.device() || 
-       asso_idx.device() != max_n_in_splits.device()){
-        throw std::invalid_argument("All inputs should be on the same device");
-    }
+    TORCH_CHECK(max_n_unique_over_splits.size(0) == 1, "max_n_unique_over_splits should have size 1");
+    
+    TORCH_CHECK(max_n_in_splits.size(0) == 1, "max_n_in_splits should have size 1");
+    
+    TORCH_CHECK(asso_idx.is_contiguous() && asso_idx.dtype() == torch::kInt32, 
+        "asso_idx should be contiguous and of type int32");
+    
+    TORCH_CHECK(unique_idx.is_contiguous() && unique_idx.dtype() == torch::kInt32, 
+        "unique_idx should be contiguous and of type int32");
+    
+    TORCH_CHECK(unique_rs_asso.is_contiguous() && unique_rs_asso.dtype() == torch::kInt32, 
+        "unique_rs_asso should be contiguous and of type int32");
+    
+    TORCH_CHECK(rs.is_contiguous() && rs.dtype() == torch::kInt32, 
+        "rs should be contiguous and of type int32");
+    
+    TORCH_CHECK(max_n_unique_over_splits.is_contiguous() && max_n_unique_over_splits.dtype() == torch::kInt32,
+        "max_n_unique_over_splits should be contiguous and of type int32");
+    
+    TORCH_CHECK(max_n_in_splits.is_contiguous() && max_n_in_splits.dtype() == torch::kInt32, 
+        "max_n_in_splits should be contiguous and of type int32");
+    
+    TORCH_CHECK(asso_idx.device() == unique_idx.device() && asso_idx.device() == unique_rs_asso.device() && 
+        asso_idx.device() == rs.device() && asso_idx.device() == max_n_unique_over_splits.device() && 
+        asso_idx.device() == max_n_in_splits.device(), "All inputs should be on the same device");
 }
 
 std::tuple<torch::Tensor, torch::Tensor> oc_helper_cuda_fn(
@@ -199,6 +187,7 @@ std::tuple<torch::Tensor, torch::Tensor> oc_helper_cuda_fn(
     );
 
     cudaDeviceSynchronize();
+    TORCH_CHECK(cudaGetLastError() == cudaSuccess, "CUDA error in kernel execution");
 
     torch::Tensor M = M_transposed.transpose(0, 1).contiguous();//ensure contiguous
     torch::Tensor M_not = M_not_transposed.transpose(0, 1).contiguous();

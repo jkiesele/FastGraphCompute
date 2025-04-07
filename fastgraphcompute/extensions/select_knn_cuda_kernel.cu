@@ -3,7 +3,7 @@
 #include <cuda_runtime.h>
 #include <vector>
 
-#define CHECK_CUDA(x) AT_ASSERTM(x.device().is_cuda(), #x " must be a CUDA tensor")
+#define CHECK_CUDA(x) TORCH_CHECK(x.device().is_cuda(), #x " must be a CUDA tensor")
 #define I2D(i,j,Nj) j + Nj*i
 
 
@@ -168,9 +168,11 @@ std::tuple<torch::Tensor, torch::Tensor> select_knn_cuda_fn(
             n_neigh);
     }));
 
+    TORCH_CHECK(cudaGetLastError() == cudaSuccess, "CUDA error in cudaMemcpy operation");
+
     std::vector<int32_t> cpu_rowsplits(n_rs);
     cudaMemcpy(&cpu_rowsplits.at(0), row_splits.data_ptr<int32_t>(), n_rs * sizeof(int32_t), cudaMemcpyDeviceToHost);
-
+    TORCH_CHECK(cudaGetLastError() == cudaSuccess, "CUDA error in cudaMemcpy operation");
 
     size_t block_size = 1024;
     size_t n_blocks;
@@ -195,6 +197,7 @@ std::tuple<torch::Tensor, torch::Tensor> select_knn_cuda_fn(
                     j_rs,
                     max_radius);
             }));
+        TORCH_CHECK(cudaGetLastError() == cudaSuccess, "CUDA error in cudaMemcpy operation");
     }
     
     return std::make_tuple(output_idx_tensor, output_dist_tensor);
