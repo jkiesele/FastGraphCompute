@@ -138,14 +138,6 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> bin_by_coordinates_cuda_
     TORCH_CHECK(n_coords == nbins.size(0), "bin_by_coordinates_cuda: coordinates.size(1) must be equal to nbins.size(0)");
 
     const auto n_total_bins = nbins.to(torch::kCPU).prod().item<int>() * (n_rs - 1);
-
-    // // Use device-side computation for n_total_bins to avoid CPU transfer
-    // int64_t n_total_bins = 1;
-    // auto nbins_accessor = nbins.accessor<int32_t, 1>();
-    // for (int i = 0; i < n_nbins; i++) {
-    //     n_total_bins *= nbins_accessor[i];
-    // }
-    // n_total_bins *= (n_rs - 1);
     
     auto output_n_per_bin_tensor = torch::zeros({ n_total_bins }, torch::TensorOptions().dtype(torch::kInt32).device(coordinates.device()));
     auto output_assigned_bin_tensor = torch::zeros({ n_vert, n_coords + 1 }, torch::TensorOptions().dtype(torch::kInt32).device(coordinates.device()));

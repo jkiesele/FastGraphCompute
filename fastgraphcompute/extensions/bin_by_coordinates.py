@@ -32,8 +32,7 @@ def bin_by_coordinates(coordinates: torch.Tensor, row_splits: torch.Tensor, bin_
         if not torch.isfinite(coordinates).all():
             raise ValueError(f"BinByCoordinates: input coordinates {name} contain non-finite values")
     
-    #select cpu or gpu version based on device of coordinates
-    # In JIT context, we need to handle this differently
+    # select cpu or gpu version based on device of coordinates
     use_cuda = coordinates.is_cuda
     if use_cuda:
         op = torch.ops.bin_by_coordinates_cuda.bin_by_coordinates
@@ -63,14 +62,13 @@ def bin_by_coordinates(coordinates: torch.Tensor, row_splits: torch.Tensor, bin_
     dmax_coords = torch.where(torch.isfinite(dmax_coords), dmax_coords, ones)
 
     # Ensure that the maximum coordinates are greater than 0
-    # In JIT context, we can't use assert, so we'll use a conditional check
     if torch.jit.is_scripting():
         pass  # Skip this check in script mode
     else:
         if not (dmax_coords > 0).all():
             raise ValueError("BinByCoordinates: dmax_coords must be greater than zero.")
 
-    # Calculate bin_width or n_bins - JIT compatible version
+    # Calculate bin_width or n_bins
     if bin_width is None:
         # n_bins must be provided if bin_width is None
         if n_bins is None:
@@ -92,7 +90,7 @@ def bin_by_coordinates(coordinates: torch.Tensor, row_splits: torch.Tensor, bin_
         if n_bins is None:
             n_bins = (dmax_coords / bin_width).to(dtype=torch.int32) + 1
 
-    # Ensure that the bin dimensions are valid - JIT compatible version
+    # Ensure that the bin dimensions are valid
     if torch.jit.is_scripting():
         pass  # Skip these checks in script mode
     else:

@@ -35,7 +35,7 @@ def _binned_select_knn(
     else:
         direction_input = direction
         
-    #this can possibly be removed for deployment    
+    #this can possibly be removed for deployment, assertions not compatible with jit script
     #def assert_same_dtype(*tensors):
     #    dtypes = [tensor.dtype for tensor in tensors]
     #    assert all(dtype == dtypes[0] for dtype in dtypes), f"Mismatch in dtypes: {dtypes}"
@@ -43,7 +43,7 @@ def _binned_select_knn(
     #assert_same_dtype(bin_idx, dim_bin_idx, bin_boundaries, n_bins, direction_input)
     #assert_same_dtype(coordinates, bin_width)
 
-    if coordinates.device.type == 'cuda':
+    if coordinates.is_cuda:
         idx, dist = torch.ops.binned_select_knn_cuda.binned_select_knn_cuda(
             coordinates, bin_idx, dim_bin_idx, bin_boundaries, n_bins, bin_width,
             direction_input, torch_compatible_indices, direction is not None, K)
@@ -123,7 +123,6 @@ class _BinnedKNNFunction(torch.autograd.Function):
         ctx.save_for_backward(idx, dist, coords)
         
         return (idx, dist)
-        # return idx
         
     @staticmethod
     def backward(ctx, grad_idx, grad_dist):
@@ -135,7 +134,6 @@ class _BinnedKNNFunction(torch.autograd.Function):
             grad_coordinates = torch.ops.binned_select_knn_grad_cuda.binned_select_knn_grad_cuda(grad_dist, idx, dist, coords)
         else:
             grad_coordinates = torch.ops.binned_select_knn_grad_cpu.binned_select_knn_grad_cpu(grad_dist, idx, dist, coords)
-        #print all names and shapes
         
         # Return gradients for each input; return None for inputs that don't require gradients
         return grad_coordinates, None, None, None, None, None, None  # None for other options if not differentiable

@@ -1,0 +1,83 @@
+Date : 2025-04-08 20:35:46
+Directory : /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute
+Total : 48 files,  4553 codes, 726 comments, 1294 blanks, all 6573 lines
+
+Languages
++------------+------------+------------+------------+------------+------------+
+| language   | files      | code       | comment    | blank      | total      |
++------------+------------+------------+------------+------------+------------+
+| Python     |         23 |      2,167 |        483 |        717 |      3,367 |
+| C++        |         16 |      1,360 |        187 |        319 |      1,866 |
+| CUDA C++   |          6 |        891 |         56 |        219 |      1,166 |
+| Markdown   |          1 |         89 |          0 |         30 |        119 |
+| Properties |          1 |         40 |          0 |          8 |         48 |
+| toml       |          1 |          6 |          0 |          1 |          7 |
++------------+------------+------------+------------+------------+------------+
+
+Directories
++--------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                                           | files      | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                                              |         48 |      4,553 |        726 |      1,294 |      6,573 |
+| . (Files)                                                                                                                      |          4 |        249 |          6 |         60 |        315 |
+| fastgraphcompute                                                                                                               |         31 |      3,036 |        385 |        789 |      4,210 |
+| fastgraphcompute (Files)                                                                                                       |          4 |        381 |         61 |        122 |        564 |
+| fastgraphcompute/extensions                                                                                                    |         27 |      2,655 |        324 |        667 |      3,646 |
+| performance                                                                                                                    |          4 |        372 |         70 |        140 |        582 |
+| tests                                                                                                                          |          9 |        896 |        265 |        305 |      1,466 |
++--------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++--------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| filename                                                                                                                       | language   | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/README.md                                                         | Markdown   |         89 |          0 |         30 |        119 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/__init__.py                                      | Python     |         31 |          5 |          8 |         44 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/__init__.py                           | Python     |          1 |          0 |          0 |          1 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/bin_by_coordinates.py                 | Python     |         69 |         20 |         22 |        111 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/bin_by_coordinates_cpu.cpp            | C++        |        114 |          9 |         36 |        159 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/bin_by_coordinates_cuda.cpp           | C++        |         27 |          2 |          5 |         34 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/bin_by_coordinates_cuda_kernel.cu     | CUDA C++   |        125 |         16 |         35 |        176 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/binned_select_knn.py                  | Python     |        114 |         31 |         37 |        182 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/binned_select_knn_cpu.cpp             | C++        |        226 |         14 |         52 |        292 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/binned_select_knn_cuda.cpp            | C++        |         52 |          3 |          6 |         61 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/binned_select_knn_cuda_kernel.cu      | CUDA C++   |        272 |         11 |         73 |        356 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/binned_select_knn_grad_cpu.cpp        | C++        |        141 |          3 |         35 |        179 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/binned_select_knn_grad_cuda.cpp       | C++        |         26 |          2 |          6 |         34 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/binned_select_knn_grad_cuda_kernel.cu | CUDA C++   |        141 |          0 |         38 |        179 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/binstepper.h                          | C++        |        136 |         10 |         25 |        171 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/cuda_helpers.h                        | C++        |        156 |         92 |         35 |        283 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/helpers.h                             | C++        |          9 |          6 |          6 |         21 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/index_replacer.py                     | Python     |         41 |          6 |         12 |         59 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/index_replacer_cpu.cpp                | C++        |         45 |          0 |          8 |         53 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/index_replacer_cuda.cpp               | C++        |         19 |          2 |          4 |         25 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/index_replacer_cuda_kernel.cu         | CUDA C++   |         45 |          0 |          9 |         54 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/oc_helper.py                          | Python     |        179 |         24 |         58 |        261 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/oc_helper_cpu.cpp                     | C++        |        118 |         10 |         33 |        161 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/oc_helper_cuda.cpp                    | C++        |         32 |          2 |          8 |         42 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/oc_helper_cuda_kernel.cu              | CUDA C++   |        152 |         16 |         28 |        196 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/oc_helper_helper.cpp                  | C++        |         58 |         19 |         24 |        101 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/select_knn_cpu.cpp                    | C++        |        170 |         11 |         32 |        213 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/select_knn_cuda.cpp                   | C++        |         31 |          2 |          4 |         37 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/extensions/select_knn_cuda_kernel.cu             | CUDA C++   |        156 |         13 |         36 |        205 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/gnn_ops.py                                       | Python     |         69 |         20 |         22 |        111 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/object_condensation.py                           | Python     |        233 |         29 |         76 |        338 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/fastgraphcompute/torch_geometric_interface.py                     | Python     |         48 |          7 |         16 |         71 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/performance/binned_knn.py                                         | Python     |         92 |         16 |         40 |        148 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/performance/gravnet_perfm.py                                      | Python     |        120 |         27 |         45 |        192 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/performance/oc_helper_helper.py                                   | Python     |         93 |         13 |         35 |        141 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/performance/oc_helpers.py                                         | Python     |         67 |         14 |         20 |        101 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/pyproject.toml                                                    | toml       |          6 |          0 |          1 |          7 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/setup.cfg                                                         | Properties |         40 |          0 |          8 |         48 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/setup.py                                                          | Python     |        114 |          6 |         21 |        141 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/tests/test_all.py                                                 | Python     |         11 |          0 |          2 |         13 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/tests/test_bin_by_coordinates.py                                  | Python     |        158 |         18 |         53 |        229 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/tests/test_binned_select_knn.py                                   | Python     |        114 |         29 |         53 |        196 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/tests/test_gnn_ops.py                                             | Python     |         83 |          7 |         26 |        116 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/tests/test_index_replacer.py                                      | Python     |         50 |         12 |         20 |         82 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/tests/test_object_condensation.py                                 | Python     |        218 |        123 |         58 |        399 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/tests/test_oc_helper.py                                           | Python     |        133 |         62 |         49 |        244 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/tests/test_oc_helper_helper.py                                    | Python     |         82 |         14 |         30 |        126 |
+| /Users/aarushagarwal/Documents/CMU/Research/fastgraphcompute/tests/test_torch_geometric_interface.py                           | Python     |         47 |          0 |         14 |         61 |
+| Total                                                                                                                          |            |      4,553 |        726 |      1,294 |      6,573 |
++--------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+

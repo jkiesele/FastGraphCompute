@@ -256,6 +256,3 @@ def select_with_default(idx: torch.Tensor,
     output[valid_positions[:, 0], valid_positions[:, 1]] = selected_feat
 
     return output
-
-# test jit scripted
-# print(type(select_with_default))
