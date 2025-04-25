@@ -46,7 +46,6 @@ class TestGravNetOp(unittest.TestCase):
                 original_output = model(x, row_splits)
                 output = scripted_model(x, row_splits)
                 loaded_output = loaded_model(x, row_splits)
-                
             
             print("Scripted Gravenet Type: ", type(scripted_model))
             # self.assertIsNotNone(output)
