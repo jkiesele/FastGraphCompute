@@ -57,6 +57,7 @@ def _binned_select_knn(
 
 class _BinnedKNNFunction(torch.autograd.Function):
     @staticmethod
+    @torch.jit.script
     def forward(ctx, 
                 coords: torch.Tensor,
                 row_splits: torch.Tensor,
@@ -125,6 +126,7 @@ class _BinnedKNNFunction(torch.autograd.Function):
         return (idx, dist)
         
     @staticmethod
+    @torch.jit.script
     def backward(ctx, grad_idx, grad_dist):
         # Retrieve saved tensors from forward pass
         idx, dist, coords = ctx.saved_tensors

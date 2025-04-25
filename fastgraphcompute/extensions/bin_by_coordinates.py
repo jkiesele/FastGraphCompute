@@ -1,13 +1,14 @@
 import torch
 import fastgraphcompute.extensions
 import os.path as osp
+from typing import Tuple
 
 #load the custom extension library
 torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'bin_by_coordinates_cpu.so'))
 if torch.cuda.is_available():
     torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'bin_by_coordinates_cuda.so'))
 
-def bin_by_coordinates(coordinates: torch.Tensor, row_splits: torch.Tensor, bin_width: torch.Tensor = None, n_bins: torch.Tensor = None, calc_n_per_bin: bool = True, pre_normalized: bool = False, name: str = "") -> torch.Tensor:
+def bin_by_coordinates(coordinates: torch.Tensor, row_splits: torch.Tensor, bin_width: torch.Tensor = None, n_bins: torch.Tensor = None, calc_n_per_bin: bool = True, pre_normalized: bool = False, name: str = "") -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Assign bins to coordinates.
 
@@ -25,19 +26,14 @@ def bin_by_coordinates(coordinates: torch.Tensor, row_splits: torch.Tensor, bin_
         Bin indices, flat bin indices, number of bins, bin width, and optionally number of points per bin.
     """
 
+    original_device = coordinates.device
+
     # Ensure the coordinates are finite - use torch.jit.is_scripting to handle differently in script mode
     if torch.jit.is_scripting():
         pass  # Skip this check in script mode
     else:
         if not torch.isfinite(coordinates).all():
             raise ValueError(f"BinByCoordinates: input coordinates {name} contain non-finite values")
-    
-    # select cpu or gpu version based on device of coordinates
-    use_cuda = coordinates.is_cuda
-    if use_cuda:
-        op = torch.ops.bin_by_coordinates_cuda.bin_by_coordinates
-    else:
-        op = torch.ops.bin_by_coordinates_cpu.bin_by_coordinates_cpu
 
     # Create a copy of coordinates for modification
     coords = coordinates.clone()
@@ -100,9 +96,28 @@ def bin_by_coordinates(coordinates: torch.Tensor, row_splits: torch.Tensor, bin_
             raise ValueError("BinByCoordinates: bin_width must be greater than zero.")
 
     # Call the custom kernel to assign bins to coordinates
-    bin_indices, flat_bin_indices, n_per_bin = op(
-        coords, row_splits, bin_width, n_bins, calc_n_per_bin
-    )
 
-    return bin_indices, flat_bin_indices, n_bins, bin_width, n_per_bin
+    # select cpu or gpu version based on device of coordinates
+    if coordinates.is_cuda:
+        # Move inputs to CUDA
+        coords_cuda = coords.to('cuda')
+        row_splits_cuda = row_splits.to('cuda', dtype=torch.int32)
+        bin_width_cuda = bin_width.to('cuda')
+        n_bins_cuda = n_bins.to('cuda')
+
+        bin_indices, flat_bin_indices, n_per_bin = torch.ops.bin_by_coordinates_cuda.bin_by_coordinates(
+            coords_cuda, row_splits_cuda, bin_width_cuda, n_bins_cuda, calc_n_per_bin
+        )
+    else:
+        # Move inputs to CPU
+        coords_cpu = coords.to('cpu')
+        row_splits_cpu = row_splits.to('cpu', dtype=torch.int32)
+        bin_width_cpu = bin_width.to('cpu')
+        n_bins_cpu = n_bins.to('cpu')
+
+        bin_indices, flat_bin_indices, n_per_bin = torch.ops.bin_by_coordinates_cpu.bin_by_coordinates_cpu(
+            coords_cpu, row_splits_cpu, bin_width_cpu, n_bins_cpu, calc_n_per_bin
+        )
+
+    return bin_indices.to(original_device), flat_bin_indices.to(original_device), n_bins.to(original_device), bin_width.to(original_device), n_per_bin.to(original_device)
 

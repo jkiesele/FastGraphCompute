@@ -4,6 +4,7 @@ import unittest
 import os.path as osp
 import fastgraphcompute.extensions
 from fastgraphcompute import bin_by_coordinates
+from typing import Tuple
 
 # Load the shared library
 cpu_so_file = osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'bin_by_coordinates_cpu.so')
@@ -12,6 +13,26 @@ torch.ops.load_library(cpu_so_file)
 if torch.cuda.is_available():
     cuda_so_file = osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'bin_by_coordinates_cuda.so')
     torch.ops.load_library(cuda_so_file)
+
+class BinByCoordinatesModule(torch.nn.Module):
+    def __init__(self, cuda=False):
+        super().__init__()
+        self.cuda_mode = cuda
+        if not cuda:
+            self.op = torch.ops.bin_by_coordinates_cpu.bin_by_coordinates_cpu
+        else:
+            self.op = torch.ops.bin_by_coordinates_cuda.bin_by_coordinates
+
+    def forward(
+        self,
+        coordinates: torch.Tensor,
+        row_splits: torch.Tensor,
+        bin_width: torch.Tensor,
+        nbins: torch.Tensor,
+        return_all: bool
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        return self.op(coordinates, row_splits, bin_width, nbins, return_all)
+
 
 class TestBinByCoordinates(unittest.TestCase):
     def setUp(self):
@@ -73,6 +94,29 @@ class TestBinByCoordinates(unittest.TestCase):
 
     def test_simple_binning_cpu(self):
         self.do_simple_binning(cuda=False)
+
+    def test_jit_script_compatibility(self):
+        """Test if BinByCoordinatesModule is compatible with torch.jit.script (CPU and CUDA)."""
+        for cuda in (False, True) if torch.cuda.is_available() else (False,):
+            device = 'cuda' if cuda else 'cpu'
+            try:
+                module = BinByCoordinatesModule(cuda=cuda).to(device)
+                scripted_module = torch.jit.script(module)
+                # Prepare inputs
+                coordinates = self.coordinates.to(device)
+                row_splits = self.row_splits.to(device)
+                bin_width = self.bin_width.to(device)
+                nbins = self.nbins.to(device)
+                with torch.no_grad():
+                    orig = module(coordinates, row_splits, bin_width, nbins, True)
+                    scripted = scripted_module(coordinates, row_splits, bin_width, nbins, True)
+                # Each output is a tuple of tensors; compare each
+                self.assertEqual(len(orig), len(scripted))
+                for o, s in zip(orig, scripted):
+                    self.assertTrue(torch.allclose(o.cpu(), s.cpu(), atol=1e-6), f"Mismatch in output: {o} vs {s}")
+                    self.assertEqual(o.shape, s.shape)
+            except Exception as e:
+                self.fail(f"Failed to script BinByCoordinates op (cuda={cuda}): {str(e)}")
 
     def do_out_of_bounds(self, cuda=False):
         print("Running out of bounds test. Overflow warnings here are normal!")

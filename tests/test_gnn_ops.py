@@ -1,6 +1,6 @@
 import unittest
 import torch
-import fastgraphcompute
+import io
 from fastgraphcompute.gnn_ops import GravNetOp
 
 
@@ -17,7 +17,6 @@ class SimpleGravNetModel(torch.nn.Module):
             optimization_arguments={}
         )
         self.scripted_gravnet = torch.jit.script(self.gravnet)
-        print("Gravenet Type: ", type(self.scripted_gravnet))
         self.fc = torch.nn.Linear(prop_dim, prop_dim)
 
     def forward(self, x, row_splits):
@@ -28,7 +27,7 @@ class SimpleGravNetModel(torch.nn.Module):
 class TestGravNetOp(unittest.TestCase):
 
     def test_jit_script_compatibility(self):
-        device = 'cpu'
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
         in_dim, prop_dim, s, k = 8, 16, 3, 8
         model = SimpleGravNetModel(in_dim, prop_dim, s, k).to(device)
         
@@ -36,11 +35,27 @@ class TestGravNetOp(unittest.TestCase):
             scripted_model = torch.jit.script(model)
             x = torch.randn(100, in_dim).to(device)
             row_splits = torch.tensor([0, 50, 100], dtype=torch.int32).to(device)
+
+            # save and load check
+            buffer = io.BytesIO()
+            torch.jit.save(scripted_model, buffer)
+            buffer.seek(0)
+            loaded_model = torch.jit.load(buffer)
             
             with torch.no_grad():
+                original_output = model(x, row_splits)
                 output = scripted_model(x, row_splits)
+                loaded_output = loaded_model(x, row_splits)
+                
             
-            self.assertIsNotNone(output)
+            print("Scripted Gravenet Type: ", type(scripted_model))
+            # self.assertIsNotNone(output)
+            
+            # check for numerical equivalence
+            self.assertTrue(torch.allclose(original_output, output, atol=1e-6))
+            self.assertTrue(torch.allclose(original_output, loaded_output, atol=1e-6))
+        
+            # shape check
             self.assertEqual(output.shape, (100, prop_dim))
         except Exception as e:
             self.fail(f"Failed to script GravNetOp: {str(e)}")
