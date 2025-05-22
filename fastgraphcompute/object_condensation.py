@@ -186,10 +186,9 @@ class ObjectCondensation(torch.nn.Module):
         eps = 1e-3
         # Continuous max approximation using LogSumExp
         beta_pen = 1. - eps * torch.logsumexp(beta_k_m / eps, dim=1)  # Sum over M
-    
+
         # Add penalty for faster convergence
         beta_pen += 1. - torch.clamp(torch.sum(beta_k_m, dim=1), min=0., max=1.)
-        
         return beta_pen
 
 
@@ -323,7 +322,7 @@ class ObjectCondensation(torch.nn.Module):
 
         # create the beta loss
         L_b_k = self._beta_loss(beta_k_m) # K x 1
-        L_b = torch.sum(L_b_k / K_k) 
+        L_b = torch.mean(L_b_k / K_k) #this needs to be the mean, now over the batch as K_k is repeated
 
         # add noise term
         L_noise = self.s_B *  beta * (asso_idx < 0).view(-1,1)  #norm per rs here too
