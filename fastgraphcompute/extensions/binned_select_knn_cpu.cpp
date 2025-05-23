@@ -285,7 +285,3 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cpu(
 
     return std::make_tuple(indices, distances);
 }
-
-TORCH_LIBRARY(binned_select_knn_cpu, m) {
-    m.def("binned_select_knn_cpu", &binned_select_knn_cpu);
-}

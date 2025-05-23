@@ -55,7 +55,3 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_interface(
         K
     );
 }
-
-TORCH_LIBRARY(binned_select_knn_cuda, m) {
-    m.def("binned_select_knn_cuda", &binned_select_knn_cuda_interface);
-}

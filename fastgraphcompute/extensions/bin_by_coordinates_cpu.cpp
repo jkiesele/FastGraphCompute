@@ -152,7 +152,3 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> bin_by_coordinates_cpu(
 
     return std::make_tuple(assigned_bin, flat_assigned_bin, n_per_bin);
 }
-
-TORCH_LIBRARY(bin_by_coordinates_cpu, m) {
-    m.def("bin_by_coordinates_cpu", &bin_by_coordinates_cpu);
-}

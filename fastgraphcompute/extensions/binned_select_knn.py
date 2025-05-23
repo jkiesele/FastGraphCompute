@@ -6,9 +6,9 @@ from .index_replacer import index_replacer
 from typing import Optional, Tuple
 
 #load the custom extension library
-torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_cpu.so'))
+torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_func.so'))
 if torch.cuda.is_available():
-    torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_cuda.so'))
+    torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_func_cuda.so'))
 
 #load the gradient library
 torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_grad_cpu.so'))
@@ -43,14 +43,9 @@ def _binned_select_knn(
     #assert_same_dtype(bin_idx, dim_bin_idx, bin_boundaries, n_bins, direction_input)
     #assert_same_dtype(coordinates, bin_width)
 
-    if coordinates.is_cuda:
-        idx, dist = torch.ops.binned_select_knn_cuda.binned_select_knn_cuda(
-            coordinates, bin_idx, dim_bin_idx, bin_boundaries, n_bins, bin_width,
-            direction_input, torch_compatible_indices, direction is not None, K)
-    else:
-        idx, dist = torch.ops.binned_select_knn_cpu.binned_select_knn_cpu(
-            coordinates, bin_idx, dim_bin_idx, bin_boundaries, n_bins, bin_width,
-            direction_input, torch_compatible_indices, direction is not None, K)
+    idx, dist = torch.ops.binned_select_knn_func.binned_select_knn_func(
+        coordinates, bin_idx, dim_bin_idx, bin_boundaries, n_bins, bin_width,
+        direction_input, torch_compatible_indices, direction is not None, K)
 
     return idx, dist
 
@@ -164,6 +159,12 @@ def binned_select_knn(K: int,
     Returns:
         Tuple[torch.Tensor, torch.Tensor]: Indices and distances of the nearest neighbors.
     """
+    # Validate input coordinates
+    if coords.shape[1] == 0:
+        raise ValueError("Input coordinates must have at least one dimension. Got 0 dimensions.")
+    if max_bin_dims == 0:
+        raise ValueError("max_bin_dims must be greater than 0. Got 0.")
+
     # Type checking for JIT compatibility
     if not isinstance(K, int):
         K = int(K)
