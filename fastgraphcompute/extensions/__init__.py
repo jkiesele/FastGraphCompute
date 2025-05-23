@@ -1,0 +1,1 @@
+print("fastgraphcompute extensions __init__.py loaded")
