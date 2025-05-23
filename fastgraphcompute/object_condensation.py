@@ -309,13 +309,15 @@ class ObjectCondensation(torch.nn.Module):
         batch_idx = strict_batch_from_row_splits(row_splits)
         K_k = select_with_default(M, obj_per_rs[batch_idx].view(-1,1), 1)[:,0] #for normalisation, (K, 1)
 
+        # for proper normalisation, we also need to adjust for the number of batch elements
+        K_k = K_k * float(row_splits.shape[0]) #never zero
+
         # mean over V' and mean over K
         L_V = torch.sum(L_V_k / K_k ) # scalar
 
         # mean over N and mean over K
         L_rep = torch.sum(L_rep_k / K_k) # scalar
 
-        
         #scatter back V = V_attractive + V_repulsive and pl_scaling to (N, 1)
         L_k_m = (L_V_k + L_rep_k).view(-1, 1, 1).repeat(1, M.size(1), 1)
         L_V_rep_N = self._scatter_to_N_indices(L_k_m, asso_idx, M).view(-1,1) # N x 1
