@@ -56,14 +56,6 @@ extensions_cpu = [
     CppExtension('fastgraphcompute.extensions.index_replacer', 
                 ['fastgraphcompute/extensions/index_replacer.cpp'], 
                 **cpu_kwargs),
-    CppExtension('fastgraphcompute.extensions.binned_select_knn', 
-                ['fastgraphcompute/extensions/binned_select_knn.cpp',
-                 'fastgraphcompute/extensions/binned_select_knn_cpu.cpp'], 
-                **cpu_kwargs),
-    CppExtension('fastgraphcompute.extensions.bin_by_coordinates', 
-                ['fastgraphcompute/extensions/bin_by_coordinates.cpp',
-                 'fastgraphcompute/extensions/bin_by_coordinates_cpu.cpp'], 
-                **cpu_kwargs),
     CppExtension('fastgraphcompute.extensions.binned_select_knn_grad', 
                 ['fastgraphcompute/extensions/binned_select_knn_grad.cpp'], 
                 **cpu_kwargs),
@@ -82,11 +74,11 @@ cuda_kwargs = dict(
         'nvcc': [
             '--expt-relaxed-constexpr',
             '-O2',
-            '-D__CUDACC__',  # Define CUDA compiler macro
-            '--compiler-options', '-fPIC',
-            '--extended-lambda',
             '--use_fast_math',
-            '-I/usr/local/cuda/include'  # Add CUDA include path
+            # '-D__CUDACC__',  # Define CUDA compiler macro
+            # '--compiler-options', '-fPIC',
+            # '--extended-lambda',
+            # '-I/usr/local/cuda/include'  # Add CUDA include path
         ]
     },
     extra_link_args=['-s']
@@ -103,18 +95,6 @@ extensions_cuda = [
         **cuda_kwargs
         ),
     CUDAExtension(
-        'fastgraphcompute.extensions.binned_select_knn_cuda',
-        ['fastgraphcompute/extensions/binned_select_knn.cpp',
-         'fastgraphcompute/extensions/binned_select_knn_cuda_kernel.cu'],
-        **cuda_kwargs
-        ),
-    CUDAExtension(
-        'fastgraphcompute.extensions.bin_by_coordinates_cuda',
-        ['fastgraphcompute/extensions/bin_by_coordinates.cpp',
-         'fastgraphcompute/extensions/bin_by_coordinates_cuda_kernel.cu'],
-        **cuda_kwargs
-        ),
-    CUDAExtension(
         'fastgraphcompute.extensions.binned_select_knn_grad_cuda',
         ['fastgraphcompute/extensions/binned_select_knn_grad_cuda.cpp', 'fastgraphcompute/extensions/binned_select_knn_grad_cuda_kernel.cu'],
         **cuda_kwargs
@@ -127,6 +107,42 @@ extensions_cuda = [
     ]
 
 extensions = []
+
+# Unified binned_select_knn
+if DO_CUDA:
+    extensions.append(CUDAExtension(
+        'fastgraphcompute.extensions.binned_select_knn',
+        ['fastgraphcompute/extensions/binned_select_knn.cpp',
+         'fastgraphcompute/extensions/binned_select_knn_cpu.cpp',
+         'fastgraphcompute/extensions/binned_select_knn_cuda_kernel.cu'],
+        **cuda_kwargs
+    ))
+elif DO_CPU:
+    extensions.append(CppExtension(
+        'fastgraphcompute.extensions.binned_select_knn',
+        ['fastgraphcompute/extensions/binned_select_knn.cpp',
+         'fastgraphcompute/extensions/binned_select_knn_cpu.cpp'],
+        **cpu_kwargs
+    ))
+
+# Unified bin_by_coordinates
+if DO_CUDA:
+    extensions.append(CUDAExtension(
+        'fastgraphcompute.extensions.bin_by_coordinates',
+        ['fastgraphcompute/extensions/bin_by_coordinates.cpp',
+         'fastgraphcompute/extensions/bin_by_coordinates_cpu.cpp',
+         'fastgraphcompute/extensions/bin_by_coordinates_cuda_kernel.cu'],
+        **cuda_kwargs
+    ))
+elif DO_CPU:
+    extensions.append(CppExtension(
+        'fastgraphcompute.extensions.bin_by_coordinates',
+        ['fastgraphcompute/extensions/bin_by_coordinates.cpp',
+         'fastgraphcompute/extensions/bin_by_coordinates_cpu.cpp'],
+        **cpu_kwargs
+    ))
+
+# Add remaining specific CPU or CUDA extensions
 if DO_CPU: extensions.extend(extensions_cpu)
 if DO_CUDA: extensions.extend(extensions_cuda)
 

@@ -209,13 +209,13 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
         
         // Gradients for: coords, row_splits, K, direction_opt, n_bins_opt, max_bin_dims, torch_compatible_indices
         // Only coords requires grad here. Others are either non-tensor or typically don't require grad.
-        return {grad_coordinates,          // grad for coords
-                torch::Tensor(),           // grad for row_splits
-                torch::Tensor(),           // grad for K (placeholder for non-tensor)
-                torch::Tensor(),           // grad for direction_opt
-                torch::Tensor(),           // grad for n_bins_opt
-                torch::Tensor(),           // grad for max_bin_dims (placeholder)
-                torch::Tensor()            // grad for torch_compatible_indices (placeholder)
+        return {grad_coordinates,
+                torch::Tensor(),
+                torch::Tensor(),
+                torch::Tensor(),
+                torch::Tensor(),
+                torch::Tensor(),
+                torch::Tensor()
                }; 
     }
 };
