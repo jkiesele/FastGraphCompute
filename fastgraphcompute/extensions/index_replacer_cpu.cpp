@@ -47,7 +47,3 @@ torch::Tensor index_replacer_cpu(
 
     return replaced;
 }
-
-TORCH_LIBRARY(index_replacer_cpu, m) {
-    m.def("index_replacer_cpu", index_replacer_cpu);
-}

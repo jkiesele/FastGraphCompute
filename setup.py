@@ -53,9 +53,6 @@ extensions_cpu = [
     CppExtension('fastgraphcompute.extensions.select_knn', 
                 ['fastgraphcompute/extensions/select_knn.cpp'], 
                 **cpu_kwargs),
-    CppExtension('fastgraphcompute.extensions.index_replacer', 
-                ['fastgraphcompute/extensions/index_replacer.cpp'], 
-                **cpu_kwargs),
     CppExtension('fastgraphcompute.extensions.binned_select_knn_grad', 
                 ['fastgraphcompute/extensions/binned_select_knn_grad.cpp'], 
                 **cpu_kwargs),
@@ -87,11 +84,6 @@ extensions_cuda = [
     CUDAExtension(
         'fastgraphcompute.extensions.select_knn_cuda',
         ['fastgraphcompute/extensions/select_knn_cuda.cpp', 'fastgraphcompute/extensions/select_knn_cuda_kernel.cu'],
-        **cuda_kwargs
-        ),
-    CUDAExtension(
-        'fastgraphcompute.extensions.index_replacer_cuda',
-        ['fastgraphcompute/extensions/index_replacer_cuda.cpp','fastgraphcompute/extensions/index_replacer_cuda_kernel.cu'],
         **cuda_kwargs
         ),
     CUDAExtension(
@@ -139,6 +131,23 @@ elif DO_CPU:
         'fastgraphcompute.extensions.bin_by_coordinates',
         ['fastgraphcompute/extensions/bin_by_coordinates.cpp',
          'fastgraphcompute/extensions/bin_by_coordinates_cpu.cpp'],
+        **cpu_kwargs
+    ))
+
+# Unified index_replacer
+if DO_CUDA:
+    extensions.append(CUDAExtension(
+        'fastgraphcompute.extensions.index_replacer',
+        ['fastgraphcompute/extensions/index_replacer.cpp',
+         'fastgraphcompute/extensions/index_replacer_cpu.cpp',
+         'fastgraphcompute/extensions/index_replacer_cuda_kernel.cu'],
+        **cuda_kwargs
+    ))
+elif DO_CPU:
+    extensions.append(CppExtension(
+        'fastgraphcompute.extensions.index_replacer',
+        ['fastgraphcompute/extensions/index_replacer.cpp',
+         'fastgraphcompute/extensions/index_replacer_cpu.cpp'],
         **cpu_kwargs
     ))
 
