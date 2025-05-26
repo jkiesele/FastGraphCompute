@@ -310,7 +310,7 @@ class ObjectCondensation(torch.nn.Module):
         K_k = select_with_default(M, obj_per_rs[batch_idx].view(-1,1), 1)[:,0] #for normalisation, (K, 1)
 
         # for proper normalisation, we also need to adjust for the number of batch elements
-        K_k = K_k * float(row_splits.shape[0]) #never zero
+        K_k = K_k * float(row_splits.shape[0] - 1) #never zero
 
         # mean over V' and mean over K
         L_V = torch.sum(L_V_k / K_k ) # scalar
@@ -324,7 +324,7 @@ class ObjectCondensation(torch.nn.Module):
 
         # create the beta loss
         L_b_k = self._beta_loss(beta_k_m) # K x 1
-        L_b = torch.mean(L_b_k / K_k) #this needs to be the mean, now over the batch as K_k is repeated
+        L_b = torch.sum(L_b_k / K_k) # scalar
 
         # add noise term
         L_noise = self.s_B *  beta * (asso_idx < 0).view(-1,1)  #norm per rs here too
