@@ -201,5 +201,4 @@ std::tuple<torch::Tensor, torch::Tensor> select_knn_cuda_fn(
     }
     
     return std::make_tuple(output_idx_tensor, output_dist_tensor);
-
 }

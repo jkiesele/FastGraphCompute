@@ -207,7 +207,3 @@ select_knn_cpu(torch::Tensor coords,
 
     return std::make_tuple(output_idx_tensor, output_dist_tensor);
 }
-
-TORCH_LIBRARY(select_knn_cpu, m) {
-  m.def("select_knn_cpu", select_knn_cpu);
-}
