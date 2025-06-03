@@ -29,20 +29,61 @@ for lib_path in compiled_libraries:
     except Exception as e:
         print(f'Failed to load {os.path.basename(lib_path)}: {e}')
 
-# Check for the C++ extension build directory (typically used with setup.py)
-build_dirs = glob.glob(os.path.join(
-    os.path.dirname(extensions_dir), 'build', '*'))
-for build_dir in build_dirs:
-    for lib_pattern in ['*.so', '*.dylib', '*.dll']:
-        for lib_path in glob.glob(os.path.join(build_dir, lib_pattern)):
-            try:
-                torch.ops.load_library(lib_path)
-                print(
-                    f'Loaded extension from build dir: {os.path.basename(lib_path)}')
-            except Exception as e:
-                print(
-                    f'Failed to load {os.path.basename(lib_path)} from build dir: {e}')
-
-# Now import the Python modules that may use these extensions
-
 print("fastgraphcompute __init__.py loaded")
+
+# Check which extensions are actually loaded and working
+print("\n=== FastGraphCompute Extension Status ===")
+
+# List of expected operations from your extensions
+expected_ops = [
+    ('binned_select_knn_func', 'binned_select_knn_func'),
+    ('binned_select_knn_grad_cpu', 'binned_select_knn_grad_cpu'),
+    ('binned_select_knn_grad_cuda', 'binned_select_knn_grad_cuda'),
+    ('bin_by_coordinates', 'bin_by_coordinates'),
+    ('index_replacer', 'index_replacer'),
+    ('select_knn', 'select_knn'),
+    ('oc_helper', 'oc_helper'),
+]
+
+# Check which ops are available
+loaded_extensions = []
+missing_extensions = []
+
+for namespace, op_name in expected_ops:
+    try:
+        # Check if the operation exists in torch.ops
+        if hasattr(torch.ops, namespace) and hasattr(getattr(torch.ops, namespace), op_name):
+            loaded_extensions.append(f"{namespace}.{op_name}")
+        else:
+            missing_extensions.append(f"{namespace}.{op_name}")
+    except Exception as e:
+        missing_extensions.append(f"{namespace}.{op_name} (error: {e})")
+
+# Print summary
+if loaded_extensions:
+    print(f"✓ Loaded extensions ({len(loaded_extensions)}):")
+    for ext in loaded_extensions:
+        print(f"  - {ext}")
+
+if missing_extensions:
+    print(f"\n✗ Missing extensions ({len(missing_extensions)}):")
+    for ext in missing_extensions:
+        print(f"  - {ext}")
+
+# Also check if Python modules imported successfully
+print("\n=== Python Module Import Status ===")
+try:
+    from . import extensions
+    print("✓ extensions module imported")
+    
+    # Check individual Python modules
+    python_modules = ['oc_helper', 'binned_select_knn', 'index_replacer', 'bin_by_coordinates']
+    for module in python_modules:
+        if hasattr(extensions, module):
+            print(f"✓ {module} module available")
+        else:
+            print(f"✗ {module} module NOT available")
+except Exception as e:
+    print(f"✗ Failed to import extensions module: {e}")
+
+print("=====================================\n")

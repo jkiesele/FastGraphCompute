@@ -95,29 +95,10 @@ def bin_by_coordinates(coordinates: torch.Tensor, row_splits: torch.Tensor, bin_
         if not (bin_width > 0).all():
             raise ValueError("BinByCoordinates: bin_width must be greater than zero.")
 
-    # Call the custom kernel to assign bins to coordinates
+    # unified library call to bin_by_coordinates
+    bin_indices, flat_bin_indices, n_bins_out, bin_width_out, n_per_bin = torch.ops.bin_by_coordinates.bin_by_coordinates(
+        coords, row_splits.to(dtype=torch.int32), bin_width, n_bins, calc_n_per_bin, pre_normalized
+    )
 
-    # select cpu or gpu version based on device of coordinates
-    if coordinates.is_cuda:
-        # Move inputs to CUDA
-        coords_cuda = coords.to('cuda')
-        row_splits_cuda = row_splits.to('cuda', dtype=torch.int32)
-        bin_width_cuda = bin_width.to('cuda')
-        n_bins_cuda = n_bins.to('cuda')
-
-        bin_indices, flat_bin_indices, n_per_bin = torch.ops.bin_by_coordinates_cuda.bin_by_coordinates(
-            coords_cuda, row_splits_cuda, bin_width_cuda, n_bins_cuda, calc_n_per_bin
-        )
-    else:
-        # Move inputs to CPU
-        coords_cpu = coords.to('cpu')
-        row_splits_cpu = row_splits.to('cpu', dtype=torch.int32)
-        bin_width_cpu = bin_width.to('cpu')
-        n_bins_cpu = n_bins.to('cpu')
-
-        bin_indices, flat_bin_indices, n_per_bin = torch.ops.bin_by_coordinates_cpu.bin_by_coordinates_cpu(
-            coords_cpu, row_splits_cpu, bin_width_cpu, n_bins_cpu, calc_n_per_bin
-        )
-
-    return bin_indices.to(original_device), flat_bin_indices.to(original_device), n_bins.to(original_device), bin_width.to(original_device), n_per_bin.to(original_device)
+    return bin_indices.to(original_device), flat_bin_indices.to(original_device), n_bins_out.to(original_device), bin_width_out.to(original_device), n_per_bin.to(original_device)
 

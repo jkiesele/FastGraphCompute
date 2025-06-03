@@ -53,7 +53,5 @@ def index_replacer(to_be_replaced: torch.Tensor, replacements: torch.Tensor) -> 
     if to_be_replaced.dtype != torch.int32 or replacements.dtype != torch.int32:
         raise AssertionError("Tensors must be int32 type.")
 
-    if to_be_replaced.device.type == 'cuda':
-        return torch.ops.index_replacer_cuda.index_replacer_cuda(to_be_replaced, replacements)
-    else:
-        return torch.ops.index_replacer_cpu.index_replacer_cpu(to_be_replaced, replacements)
+    # Use unified call - PyTorch dispatcher will handle CPU/CUDA
+    return torch.ops.index_replacer.index_replacer(to_be_replaced, replacements)
