@@ -2,7 +2,7 @@
 #include <vector>
 
 // Forward declarations
-std::tuple<torch::Tensor, torch::Tensor> select_knn_cpu_fn(
+std::tuple<torch::Tensor, torch::Tensor> select_knn_cpu(
     torch::Tensor coords, 
     torch::Tensor row_splits,
     torch::Tensor mask, 
