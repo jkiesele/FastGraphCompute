@@ -5,6 +5,7 @@ from typing import Tuple
 from . import binned_select_knn
 from . import select_with_default
 
+# @torch.jit.script
 class GravNetOp(torch.nn.Module):
     """
     GravNetOp implements a single layer of the GravNet algorithm [arxiv:1902.07987], which 
@@ -107,4 +108,3 @@ class GravNetOp(torch.nn.Module):
         # Step 8: Apply final transformation to get output features
         out = self.output_transformations(output)
         return out, neighbor_idx, distsq, space
-    

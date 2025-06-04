@@ -6,9 +6,9 @@ from .index_replacer import index_replacer
 from typing import Optional, Tuple
 
 #load the custom extension library
-torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_cpu.so'))
+torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_func.so'))
 if torch.cuda.is_available():
-    torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_cuda.so'))
+    torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_func_cuda.so'))
 
 #load the gradient library
 torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_grad_cpu.so'))
@@ -17,7 +17,7 @@ if torch.cuda.is_available():
 
 
 #just a wrapper function to call the custom extension
-#@torch.jit.script
+# @torch.jit.script
 def _binned_select_knn(
     K: int,
     coordinates: torch.Tensor,
@@ -26,13 +26,8 @@ def _binned_select_knn(
     bin_boundaries: torch.Tensor,
     n_bins: torch.Tensor, 
     bin_width: torch.Tensor , 
-    torch_compatible_indices: bool =False,
+    torch_compatible_indices: bool = False,
     direction : Optional[torch.Tensor] = None):
-
-    if coordinates.device.type == 'cuda':
-        op = torch.ops.binned_select_knn_cuda.binned_select_knn_cuda
-    else:
-        op = torch.ops.binned_select_knn_cpu.binned_select_knn_cpu
 
     #check if direction is None, if so create an empty tensor
     if direction is None:
@@ -40,7 +35,7 @@ def _binned_select_knn(
     else:
         direction_input = direction
         
-    #this can possibly be removed for deployment    
+    #this can possibly be removed for deployment, assertions not compatible with jit script
     #def assert_same_dtype(*tensors):
     #    dtypes = [tensor.dtype for tensor in tensors]
     #    assert all(dtype == dtypes[0] for dtype in dtypes), f"Mismatch in dtypes: {dtypes}"
@@ -48,14 +43,16 @@ def _binned_select_knn(
     #assert_same_dtype(bin_idx, dim_bin_idx, bin_boundaries, n_bins, direction_input)
     #assert_same_dtype(coordinates, bin_width)
 
-    idx, dist = op(coordinates, bin_idx, dim_bin_idx, bin_boundaries, n_bins, bin_width,
-              direction_input, torch_compatible_indices, direction is not None, K)
+    idx, dist = torch.ops.binned_select_knn_func.binned_select_knn_func(
+        coordinates, bin_idx, dim_bin_idx, bin_boundaries, n_bins, bin_width,
+        direction_input, torch_compatible_indices, direction is not None, K)
 
     return idx, dist
 
 
 class _BinnedKNNFunction(torch.autograd.Function):
     @staticmethod
+    @torch.jit.script
     def forward(ctx, 
                 coords: torch.Tensor,
                 row_splits: torch.Tensor,
@@ -63,7 +60,7 @@ class _BinnedKNNFunction(torch.autograd.Function):
                 direction: Optional[torch.Tensor] = None, 
                 n_bins: Optional[torch.Tensor] = None, 
                 max_bin_dims: int = 3, 
-                torch_compatible_indices: bool =False)  -> Tuple[torch.Tensor, torch.Tensor]:
+                torch_compatible_indices: bool =False):
         
         # Estimate a good number of bins for homogeneous distributions
         elems_per_rs = torch.max(row_splits) / row_splits.shape[0]
@@ -124,18 +121,16 @@ class _BinnedKNNFunction(torch.autograd.Function):
         return (idx, dist)
         
     @staticmethod
+    @torch.jit.script
     def backward(ctx, grad_idx, grad_dist):
         # Retrieve saved tensors from forward pass
         idx, dist, coords = ctx.saved_tensors
 
-        if grad_dist.device.type == 'cuda':
-            op = torch.ops.binned_select_knn_grad_cuda.binned_select_knn_grad_cuda
-        else:
-            op = torch.ops.binned_select_knn_grad_cpu.binned_select_knn_grad_cpu
-
         # Call your custom operation for computing coordinate gradients
-        grad_coordinates = op(grad_dist, idx, dist, coords)
-        #print all names and shapes
+        if grad_dist.device.type == 'cuda':
+            grad_coordinates = torch.ops.binned_select_knn_grad_cuda.binned_select_knn_grad_cuda(grad_dist, idx, dist, coords)
+        else:
+            grad_coordinates = torch.ops.binned_select_knn_grad_cpu.binned_select_knn_grad_cpu(grad_dist, idx, dist, coords)
         
         # Return gradients for each input; return None for inputs that don't require gradients
         return grad_coordinates, None, None, None, None, None, None  # None for other options if not differentiable
@@ -164,6 +159,25 @@ def binned_select_knn(K: int,
     Returns:
         Tuple[torch.Tensor, torch.Tensor]: Indices and distances of the nearest neighbors.
     """
-    return _BinnedKNNFunction.apply(coords, row_splits, K, direction, n_bins, max_bin_dims, torch_compatible_indices)
-    
+    # Validate input coordinates
+    if coords.shape[1] == 0:
+        raise ValueError("Input coordinates must have at least one dimension. Got 0 dimensions.")
+    if max_bin_dims == 0:
+        raise ValueError("max_bin_dims must be greater than 0. Got 0.")
 
+    # Type checking for JIT compatibility
+    if not isinstance(K, int):
+        K = int(K)
+    if not isinstance(max_bin_dims, int):
+        max_bin_dims = int(max_bin_dims)
+        
+    # Ensure row_splits is a tensor
+    if not isinstance(row_splits, torch.Tensor):
+        row_splits = torch.tensor(row_splits, dtype=torch.int32, device=coords.device)
+        
+    # Ensure coordinates are float32 for CUDA kernel compatibility
+    if coords.dtype != torch.float32:
+        coords = coords.to(dtype=torch.float32)
+
+    idx, dist = _BinnedKNNFunction.apply(coords, row_splits, K, direction, n_bins, max_bin_dims, torch_compatible_indices)
+    return idx, dist
