@@ -1,7 +1,21 @@
 #include <torch/extension.h>
 #include <vector>
 #include <tuple>
-#include <script.h>
+
+// Forward declarations for the implementation functions
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> bin_by_coordinates_cpu_fn(
+    torch::Tensor coords,
+    torch::Tensor row_splits,
+    torch::Tensor binswidth,
+    torch::Tensor nbins,
+    bool calc_n_per_bin);
+
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> bin_by_coordinates_cuda_fn(
+    torch::Tensor coords,
+    torch::Tensor row_splits,
+    torch::Tensor binswidth,
+    torch::Tensor nbins,
+    bool calc_n_per_bin);
 
 // Input validation macros
 #define CHECK_CONTIGUOUS(x) TORCH_CHECK(x.is_contiguous(), #x " must be contiguous")
@@ -9,7 +23,7 @@
 
 // Helper function to check if all values in a tensor are finite
 bool is_finite(const torch::Tensor& tensor) {
-    return torch::isfinite(tensor).all().item<bool>();
+    return torch::isfinite(tensor).all().item().to<bool>();
 }
 
 // Main bin_by_coordinates function
@@ -38,13 +52,13 @@ bin_by_coordinates(
     
     // Normalize coordinates if not pre-normalized
     if (!pre_normalized) {
-        auto min_coords = torch::min(coords, 0, true).values;
+        auto min_coords = std::get<0>(torch::min(coords, 0, true));
         coords = coords - min_coords;
     }
     
     // Calculate max coordinates and handle zero-range dimensions
-    auto dmax_coords = torch::max(coords, 0).values;
-    auto min_coords_per_dim = torch::min(coords, 0).values;
+    auto dmax_coords = std::get<0>(torch::max(coords, 0));
+    auto min_coords_per_dim = std::get<0>(torch::min(coords, 0));
     
     // Handle zero-range dimensions
     dmax_coords = torch::where(min_coords_per_dim == dmax_coords, dmax_coords + 1.0, dmax_coords);
@@ -57,7 +71,7 @@ bin_by_coordinates(
     dmax_coords = torch::where(torch::isfinite(dmax_coords), dmax_coords, ones);
     
     // Ensure maximum coordinates are greater than 0
-    if (!(dmax_coords > 0).all().item<bool>()) {
+    if (!(dmax_coords > 0).all().item().to<bool>()) {
         throw std::runtime_error("BinByCoordinates: dmax_coords must be greater than zero.");
     }
     
@@ -84,16 +98,25 @@ bin_by_coordinates(
     }
     
     // Validate bin dimensions
-    if (!(n_bins > 0).all().item<bool>()) {
+    if (!(n_bins > 0).all().item().to<bool>()) {
         throw std::runtime_error("BinByCoordinates: n_bins must be greater than zero.");
     }
-    if (!(bin_width > 0).all().item<bool>()) {
+    if (!(bin_width > 0).all().item().to<bool>()) {
         throw std::runtime_error("BinByCoordinates: bin_width must be greater than zero.");
     }
     
-    // Call the kernel through the registered operation - PyTorch will handle device dispatch
-    auto [bin_indices, flat_bin_indices, n_per_bin] = torch::ops::bin_by_coordinates_func::bin_by_coordinates_func(
-        coords, row_splits, bin_width, n_bins, calc_n_per_bin);
+    // Call the appropriate implementation based on device type
+    // TODO: this is a hack to get the code to work. We should use the unified operation instead.
+    std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> result;
+    if (coords.device().is_cuda()) {
+        result = bin_by_coordinates_cuda_fn(coords, row_splits.to(torch::kInt32), bin_width, n_bins, calc_n_per_bin);
+    } else {
+        result = bin_by_coordinates_cpu_fn(coords, row_splits.to(torch::kInt32), bin_width, n_bins, calc_n_per_bin);
+    }
+    
+    auto bin_indices = std::get<0>(result);
+    auto flat_bin_indices = std::get<1>(result);
+    auto n_per_bin = std::get<2>(result);
     
     return std::make_tuple(
         bin_indices,
@@ -110,9 +133,9 @@ TORCH_LIBRARY(bin_by_coordinates, m) {
 }
 
 TORCH_LIBRARY_IMPL(bin_by_coordinates, CPU, m) {
-    m.impl("bin_by_coordinates", bin_by_coordinates);
+    m.impl("bin_by_coordinates", &bin_by_coordinates);
 }
 
 TORCH_LIBRARY_IMPL(bin_by_coordinates, CUDA, m) {
-    m.impl("bin_by_coordinates", bin_by_coordinates);
+    m.impl("bin_by_coordinates", &bin_by_coordinates);
 }

@@ -160,7 +160,7 @@ std::tuple<torch::Tensor, torch::Tensor> select_knn_cuda_fn(
     // Ensure enough blocks in the grid over these dims by rounding up
     dim3 grid((n_vert+block.x-1)/block.x, (n_neigh+block.y-1)/block.y);
 
-    AT_DISPATCH_FLOATING_TYPES(coords.type(), "set_defaults", ([&] {
+    AT_DISPATCH_FLOATING_TYPES(coords.scalar_type(), "set_defaults", ([&] {
         set_defaults <scalar_t> <<<grid, block>>> (
             output_dist_tensor.data_ptr<scalar_t>(),
             output_idx_tensor.data_ptr<int32_t>(),
@@ -182,7 +182,7 @@ std::tuple<torch::Tensor, torch::Tensor> select_knn_cuda_fn(
         // grid_and_block gb(nvert_rs, 1024);
         n_blocks = (nvert_rs + block_size - 1) / block_size;
 
-        AT_DISPATCH_FLOATING_TYPES(coords.type(), "select_knn_kernel", ([&] {
+        AT_DISPATCH_FLOATING_TYPES(coords.scalar_type(), "select_knn_kernel", ([&] {
             select_knn_kernel <scalar_t> <<<n_blocks, block_size>>> (
                     coords.data_ptr<scalar_t>(),
                     row_splits.data_ptr<int32_t>(),

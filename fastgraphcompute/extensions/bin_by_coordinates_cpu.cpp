@@ -100,7 +100,7 @@ static void calc(
 }
 
 
-std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> bin_by_coordinates_cpu(
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> bin_by_coordinates_cpu_fn(
     torch::Tensor coordinates,
     torch::Tensor row_splits,
     torch::Tensor bin_width,
@@ -126,7 +126,7 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> bin_by_coordinates_cpu(
         throw std::invalid_argument("bin_by_coordinates_cpu: coordinates.size(1) must be equal to nbins.size(0)");
     }
     const auto n_rs = row_splits.size(0);
-    const auto n_total_bins = nbins.prod().item<int>() * (n_rs - 1);
+    const auto n_total_bins = nbins.prod().item().to<int>() * (n_rs - 1);
 
     auto options = torch::TensorOptions().dtype(torch::kInt32);
     auto assigned_bin = torch::empty({n_vert, n_coords+1}, options);

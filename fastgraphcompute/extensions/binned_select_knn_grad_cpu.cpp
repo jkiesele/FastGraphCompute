@@ -3,8 +3,6 @@
 #include <vector>
 #include <algorithm>
 
-// four inputs, one output
-
 template <typename T>
 static void select_knn_grad_selfloop_kernel(
         const float *d_grad_dist, // V x N

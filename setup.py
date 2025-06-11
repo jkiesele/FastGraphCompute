@@ -122,18 +122,20 @@ elif DO_CPU:
         **cpu_kwargs
     ))
 
-# Unified select_knn
+# Unified select_knn (fixed to include select_knn_cpu.cpp)
 if DO_CUDA:
     extensions.append(CUDAExtension(
         'fastgraphcompute.extensions.select_knn',
         ['fastgraphcompute/extensions/select_knn.cpp',
+         'fastgraphcompute/extensions/select_knn_cpu.cpp',
          'fastgraphcompute/extensions/select_knn_cuda_kernel.cu'],
         **cuda_kwargs
     ))
 elif DO_CPU:
     extensions.append(CppExtension(
         'fastgraphcompute.extensions.select_knn',
-        ['fastgraphcompute/extensions/select_knn.cpp'],
+        ['fastgraphcompute/extensions/select_knn.cpp',
+         'fastgraphcompute/extensions/select_knn_cpu.cpp'],
         **cpu_kwargs
     ))
 
@@ -142,30 +144,51 @@ if DO_CUDA:
     extensions.append(CUDAExtension(
         'fastgraphcompute.extensions.binned_select_knn_grad',
         ['fastgraphcompute/extensions/binned_select_knn_grad.cpp',
+         'fastgraphcompute/extensions/binned_select_knn_grad_cpu.cpp',
          'fastgraphcompute/extensions/binned_select_knn_grad_cuda_kernel.cu'],
         **cuda_kwargs
     ))
 elif DO_CPU:
     extensions.append(CppExtension(
         'fastgraphcompute.extensions.binned_select_knn_grad',
-        ['fastgraphcompute/extensions/binned_select_knn_grad.cpp'],
+        ['fastgraphcompute/extensions/binned_select_knn_grad.cpp',
+         'fastgraphcompute/extensions/binned_select_knn_grad_cpu.cpp'],
         **cpu_kwargs
     ))
 
-# Unified oc_helper
+# Unified oc_helper - REMOVED: oc_helper.cpp does not exist
+# Use separate oc_helper_cpu and oc_helper_cuda extensions instead
+
+# NEW: Autograd binned KNN (fastgraphcompute_custom_ops)
+extensions.append(CppExtension(
+    'fastgraphcompute.extensions.binned_knn_autograd_kernel',
+    ['fastgraphcompute/extensions/binned_knn_autograd_kernel.cpp'],
+    **cpu_kwargs
+))
+
+
+# NEW: oc_helper_cpu (separate CPU registration)
+extensions.append(CppExtension(
+    'fastgraphcompute.extensions.oc_helper_cpu',
+    ['fastgraphcompute/extensions/oc_helper_cpu.cpp'],
+    **cpu_kwargs
+))
+
+# NEW: oc_helper_cuda (separate CUDA registration)
 if DO_CUDA:
     extensions.append(CUDAExtension(
-        'fastgraphcompute.extensions.oc_helper',
-        ['fastgraphcompute/extensions/oc_helper.cpp',
+        'fastgraphcompute.extensions.oc_helper_cuda',
+        ['fastgraphcompute/extensions/oc_helper_cuda.cpp',
          'fastgraphcompute/extensions/oc_helper_cuda_kernel.cu'],
         **cuda_kwargs
     ))
-elif DO_CPU:
-    extensions.append(CppExtension(
-        'fastgraphcompute.extensions.oc_helper',
-        ['fastgraphcompute/extensions/oc_helper.cpp'],
-        **cpu_kwargs
-    ))
+
+# NEW: oc_helper_helper (helper functions)
+extensions.append(CppExtension(
+    'fastgraphcompute.extensions.oc_helper_helper',
+    ['fastgraphcompute/extensions/oc_helper_helper.cpp'],
+    **cpu_kwargs
+))
 
 
 def repr_ext(ext):

@@ -84,9 +84,9 @@ TORCH_LIBRARY(binned_select_knn, m) {
 }
 
 TORCH_LIBRARY_IMPL(binned_select_knn, CUDA, m) {
-    m.impl("binned_select_knn", binned_select_knn_cuda_interface);
+    m.impl("binned_select_knn", &binned_select_knn_cuda_interface);
 }
 
 TORCH_LIBRARY_IMPL(binned_select_knn, CPU, m) {
-    m.impl("binned_select_knn", binned_select_knn_cpu_interface);
+    m.impl("binned_select_knn", &binned_select_knn_cpu_interface);
 } 

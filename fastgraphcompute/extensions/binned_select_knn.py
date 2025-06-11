@@ -5,45 +5,44 @@ from .bin_by_coordinates import bin_by_coordinates
 from .index_replacer import index_replacer
 from typing import Optional, Tuple
 
-#load the custom extension library
-torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_func.so'))
-if torch.cuda.is_available():
-    torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_func_cuda.so'))
+# load the custom extension library
+torch.ops.load_library(osp.join(osp.dirname(osp.realpath(
+    fastgraphcompute.extensions.__file__)), 'binned_select_knn.so'))
 
-#load the gradient library
-torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_grad_cpu.so'))
-if torch.cuda.is_available():
-    torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'binned_select_knn_grad_cuda.so'))
+# load the gradient library
+torch.ops.load_library(osp.join(osp.dirname(osp.realpath(
+    fastgraphcompute.extensions.__file__)), 'binned_select_knn_grad.so'))
 
 
-#just a wrapper function to call the custom extension
+# just a wrapper function to call the custom extension
 # @torch.jit.script
 def _binned_select_knn(
-    K: int,
-    coordinates: torch.Tensor,
-    bin_idx: torch.Tensor,
-    dim_bin_idx: torch.Tensor,
-    bin_boundaries: torch.Tensor,
-    n_bins: torch.Tensor, 
-    bin_width: torch.Tensor , 
-    torch_compatible_indices: bool = False,
-    direction : Optional[torch.Tensor] = None):
+        K: int,
+        coordinates: torch.Tensor,
+        bin_idx: torch.Tensor,
+        dim_bin_idx: torch.Tensor,
+        bin_boundaries: torch.Tensor,
+        n_bins: torch.Tensor,
+        bin_width: torch.Tensor,
+        torch_compatible_indices: bool = False,
+        direction: Optional[torch.Tensor] = None):
 
-    #check if direction is None, if so create an empty tensor
+    # check if direction is None, if so create an empty tensor
     if direction is None:
-        direction_input = torch.empty(0, device=coordinates.device, dtype=dim_bin_idx.dtype)
+        direction_input = torch.empty(
+            0, device=coordinates.device, dtype=dim_bin_idx.dtype)
     else:
         direction_input = direction
-        
-    #this can possibly be removed for deployment, assertions not compatible with jit script
-    #def assert_same_dtype(*tensors):
+
+    # this can possibly be removed for deployment, assertions not compatible with jit script
+    # def assert_same_dtype(*tensors):
     #    dtypes = [tensor.dtype for tensor in tensors]
     #    assert all(dtype == dtypes[0] for dtype in dtypes), f"Mismatch in dtypes: {dtypes}"
-    
-    #assert_same_dtype(bin_idx, dim_bin_idx, bin_boundaries, n_bins, direction_input)
-    #assert_same_dtype(coordinates, bin_width)
 
-    idx, dist = torch.ops.binned_select_knn_func.binned_select_knn_func(
+    # assert_same_dtype(bin_idx, dim_bin_idx, bin_boundaries, n_bins, direction_input)
+    # assert_same_dtype(coordinates, bin_width)
+
+    idx, dist = torch.ops.binned_select_knn.binned_select_knn(
         coordinates, bin_idx, dim_bin_idx, bin_boundaries, n_bins, bin_width,
         direction_input, torch_compatible_indices, direction is not None, K)
 
@@ -53,73 +52,82 @@ def _binned_select_knn(
 class _BinnedKNNFunction(torch.autograd.Function):
     @staticmethod
     @torch.jit.script
-    def forward(ctx, 
+    def forward(ctx,
                 coords: torch.Tensor,
                 row_splits: torch.Tensor,
-                K: int, 
-                direction: Optional[torch.Tensor] = None, 
-                n_bins: Optional[torch.Tensor] = None, 
-                max_bin_dims: int = 3, 
-                torch_compatible_indices: bool =False):
-        
+                K: int,
+                direction: Optional[torch.Tensor] = None,
+                n_bins: Optional[torch.Tensor] = None,
+                max_bin_dims: int = 3,
+                torch_compatible_indices: bool = False):
+
         # Estimate a good number of bins for homogeneous distributions
         elems_per_rs = torch.max(row_splits) / row_splits.shape[0]
         elems_per_rs = elems_per_rs.to(dtype=torch.int32) + 1
-    
+
         # Limit max_bin_dims to the number of coordinate dimensions
         max_bin_dims = min(max_bin_dims, coords.shape[1])
-    
+
         # Calculate n_bins if not provided
         if n_bins is None:
-            n_bins = torch.pow(elems_per_rs.float() / (K / 32), 1. / float(max_bin_dims))
+            n_bins = torch.pow(elems_per_rs.float() /
+                               (K / 32), 1. / float(max_bin_dims))
             n_bins = n_bins.to(dtype=torch.int32)
-            n_bins = torch.where(n_bins < 5, torch.tensor(5, dtype=torch.int32), n_bins)
-            n_bins = torch.where(n_bins > 30, torch.tensor(30, dtype=torch.int32), n_bins)
-    
+            n_bins = torch.where(n_bins < 5, torch.tensor(
+                5, dtype=torch.int32), n_bins)
+            n_bins = torch.where(n_bins > 30, torch.tensor(
+                30, dtype=torch.int32), n_bins)
+
         # Handle binning for the coordinates
         bin_coords = coords
         if bin_coords.shape[-1] > max_bin_dims:
-            bin_coords = bin_coords[:, :max_bin_dims]  # Truncate the extra dimensions
-    
+            # Truncate the extra dimensions
+            bin_coords = bin_coords[:, :max_bin_dims]
+
         # Call BinByCoordinates to assign bins
-        dbinning, binning, nb, bin_width, nper = bin_by_coordinates(bin_coords, row_splits, n_bins=n_bins)
-    
+        dbinning, binning, nb, bin_width, nper = bin_by_coordinates(
+            bin_coords, row_splits, n_bins=n_bins)
+
         # Sort the points by bin assignment
         sorting = torch.argsort(binning, dim=0)
-        #cast sorting to int32
+        # cast sorting to int32
         sorting = sorting.to(dtype=torch.int32)
-    
+
         # Gather sorted coordinates and bin information
         scoords = coords[sorting]
         sbinning = binning[sorting]
         sdbinning = dbinning[sorting]
-    
+
         if direction is not None:
             direction = direction[sorting]
-    
+
         # Create bin boundaries (cumulative sum of number of points per bin)
-        bin_boundaries = torch.cat([torch.zeros(1, dtype=torch.int32).to(coords.device), nper], dim=0)
+        bin_boundaries = torch.cat(
+            [torch.zeros(1, dtype=torch.int32).to(coords.device), nper], dim=0)
         bin_boundaries = torch.cumsum(bin_boundaries, dim=0, dtype=torch.int32)
-    
+
         # Ensure the bin boundaries are valid
-        assert torch.max(bin_boundaries) == torch.max(row_splits), "Bin boundaries do not match row splits."
-    
+        assert torch.max(bin_boundaries) == torch.max(
+            row_splits), "Bin boundaries do not match row splits."
+
         # Call the _BinnedSelectKnn kernel
-        idx, dist = _binned_select_knn(K, scoords, sbinning, sdbinning, bin_boundaries=bin_boundaries, 
-                                     n_bins=nb, bin_width=bin_width, 
-                                     torch_compatible_indices=torch_compatible_indices, direction=direction)
-        
-        idx = index_replacer(idx, sorting)  # Placeholder: handle index sorting replacement
-        #cast sorting back to int64 for scatter
-        sorting = sorting.to(dtype=torch.int64) 
-        
-        dist = torch.scatter(dist, 0, sorting.unsqueeze(-1).expand_as(dist), dist)
+        idx, dist = _binned_select_knn(K, scoords, sbinning, sdbinning, bin_boundaries=bin_boundaries,
+                                       n_bins=nb, bin_width=bin_width,
+                                       torch_compatible_indices=torch_compatible_indices, direction=direction)
+
+        # Placeholder: handle index sorting replacement
+        idx = index_replacer(idx, sorting)
+        # cast sorting back to int64 for scatter
+        sorting = sorting.to(dtype=torch.int64)
+
+        dist = torch.scatter(
+            dist, 0, sorting.unsqueeze(-1).expand_as(dist), dist)
         idx = torch.scatter(idx, 0, sorting.unsqueeze(-1).expand_as(idx), idx)
 
         ctx.save_for_backward(idx, dist, coords)
-        
+
         return (idx, dist)
-        
+
     @staticmethod
     @torch.jit.script
     def backward(ctx, grad_idx, grad_dist):
@@ -128,22 +136,24 @@ class _BinnedKNNFunction(torch.autograd.Function):
 
         # Call your custom operation for computing coordinate gradients
         if grad_dist.device.type == 'cuda':
-            grad_coordinates = torch.ops.binned_select_knn_grad_cuda.binned_select_knn_grad_cuda(grad_dist, idx, dist, coords)
+            grad_coordinates = torch.ops.binned_select_knn_grad_cuda.binned_select_knn_grad_cuda(
+                grad_dist, idx, dist, coords)
         else:
-            grad_coordinates = torch.ops.binned_select_knn_grad_cpu.binned_select_knn_grad_cpu(grad_dist, idx, dist, coords)
-        
-        # Return gradients for each input; return None for inputs that don't require gradients
-        return grad_coordinates, None, None, None, None, None, None  # None for other options if not differentiable
-    
-  
+            grad_coordinates = torch.ops.binned_select_knn_grad_cpu.binned_select_knn_grad_cpu(
+                grad_dist, idx, dist, coords)
 
-def binned_select_knn(K: int, 
+        # Return gradients for each input; return None for inputs that don't require gradients
+        # None for other options if not differentiable
+        return grad_coordinates, None, None, None, None, None, None
+
+
+def binned_select_knn(K: int,
                       coords: torch.Tensor,
                       row_splits: torch.Tensor,
-                      direction: Optional[torch.Tensor] = None, 
-                      n_bins: Optional[torch.Tensor] = None, 
-                      max_bin_dims: int = 3, 
-                      torch_compatible_indices: bool =False) -> Tuple[torch.Tensor, torch.Tensor]:
+                      direction: Optional[torch.Tensor] = None,
+                      n_bins: Optional[torch.Tensor] = None,
+                      max_bin_dims: int = 3,
+                      torch_compatible_indices: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Perform K-Nearest Neighbors selection using binning.
 
@@ -161,7 +171,8 @@ def binned_select_knn(K: int,
     """
     # Validate input coordinates
     if coords.shape[1] == 0:
-        raise ValueError("Input coordinates must have at least one dimension. Got 0 dimensions.")
+        raise ValueError(
+            "Input coordinates must have at least one dimension. Got 0 dimensions.")
     if max_bin_dims == 0:
         raise ValueError("max_bin_dims must be greater than 0. Got 0.")
 
@@ -170,14 +181,16 @@ def binned_select_knn(K: int,
         K = int(K)
     if not isinstance(max_bin_dims, int):
         max_bin_dims = int(max_bin_dims)
-        
+
     # Ensure row_splits is a tensor
     if not isinstance(row_splits, torch.Tensor):
-        row_splits = torch.tensor(row_splits, dtype=torch.int32, device=coords.device)
-        
+        row_splits = torch.tensor(
+            row_splits, dtype=torch.int32, device=coords.device)
+
     # Ensure coordinates are float32 for CUDA kernel compatibility
     if coords.dtype != torch.float32:
         coords = coords.to(dtype=torch.float32)
 
-    idx, dist = _BinnedKNNFunction.apply(coords, row_splits, K, direction, n_bins, max_bin_dims, torch_compatible_indices)
+    idx, dist = _BinnedKNNFunction.apply(
+        coords, row_splits, K, direction, n_bins, max_bin_dims, torch_compatible_indices)
     return idx, dist

@@ -107,7 +107,7 @@ static void select_knn_kernel_cpu(
                 int idx = stepper.step();
                 if(idx<0){//not valid
                     if(!continue_search && !distance){//this should not happen
-                        printf("\nERROR: binned_select_knn.cu: stopping search for vtx %d at distance %d\n",i_v,distance);
+                        printf("\nERROR: binned_select_knn_cpu.cpp: stopping search for vtx %d at distance %d\n",i_v,distance);
                     }
                     break;
     
@@ -116,7 +116,7 @@ static void select_knn_kernel_cpu(
                 idx+=gbin_offset;
     
                 if(idx>=n_bboundaries-1){
-                    printf("\nERROR: binned_select_knn.cu: boundary issue: idx %d out of range, gb offset %d, distance %d, sb_flat_offset %d, nbb %d\n", idx, gbin_offset, distance, sb_flat_offset,n_bboundaries);
+                    printf("\nERROR: binned_select_knn_cpu.cpp: boundary issue: idx %d out of range, gb offset %d, distance %d, sb_flat_offset %d, nbb %d\n", idx, gbin_offset, distance, sb_flat_offset,n_bboundaries);
                     continue;
                 }
     
@@ -129,7 +129,7 @@ static void select_knn_kernel_cpu(
                 }
     
                 if(start_vertex>=n_vert || end_vertex>n_vert){
-                    printf("\nERROR: binned_select_knn.cu: start_vertex %d or end_vertex %d out of range %d \n", start_vertex, end_vertex, n_vert);
+                    printf("\nERROR: binned_select_knn_cpu.cpp: start_vertex %d or end_vertex %d out of range %d \n", start_vertex, end_vertex, n_vert);
                     continue;//safe guard
                 }
     

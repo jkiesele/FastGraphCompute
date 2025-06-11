@@ -1,18 +1,8 @@
 #include <torch/extension.h>
-#include <cuda_runtime.h>
-#include <cuda_helpers.h>
-#include <torch/script.h>
+#include <torch/ops.h>
 #include <vector>
 #include <tuple>
 #include <algorithm>
-
-#define C10_CUDA_KERNEL_LAUNCH_CHECK() {                         \
-    cudaError_t err = cudaGetLastError();                        \
-    if (err != cudaSuccess) {                                    \
-        printf("CUDA Kernel launch error: %s\n",                 \
-               cudaGetErrorString(err));                         \
-    }                                                            \
-}
 
 // Helper function to ensure tensors are contiguous and on correct device
 template<typename... Tensors>
@@ -85,7 +75,7 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
         auto zero_tensor = torch::zeros({1}, int32_options.device(nper.device()));
         auto bin_boundaries = torch::cumsum(torch::cat({zero_tensor, nper}, 0), 0, torch::kInt32);
 
-        TORCH_CHECK(torch::max(bin_boundaries).item<int32_t>() == torch::max(row_splits).item<int32_t>(),
+        TORCH_CHECK(torch::max(bin_boundaries).item().to<int32_t>() == torch::max(row_splits).item().to<int32_t>(),
                     "Bin boundaries do not match row splits.");
 
         // Prepare inputs for KNN kernel
@@ -141,7 +131,7 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
                 auto [k_grad_dist, k_idx, k_dist, k_coords] = 
                     make_contiguous_on_device(kernel_device, grad_dist, idx, dist, original_coords);
 
-                grad_coordinates = torch::ops::binned_select_knn_grad_lib::binned_select_knn_grad(
+                grad_coordinates = torch::ops::binned_select_knn_grad::binned_select_knn_grad(
                     k_grad_dist, k_idx, k_dist, k_coords);
             } else {
                 grad_coordinates = torch::zeros_like(original_coords, original_coords.options().requires_grad(false));
@@ -176,12 +166,11 @@ TORCH_LIBRARY(fastgraphcompute_custom_ops, m) {
 TORCH_LIBRARY_IMPL(fastgraphcompute_custom_ops, Autograd, m) {
     m.impl("binned_select_knn", TORCH_FN(binned_select_knn_cpp_op));
 }
-
 // Note on other ops:
 // Make sure the following ops (and their CPU/CUDA counterparts where applicable) 
 // are also registered via TORCH_LIBRARY so they can be called via torch::ops::...::call(...):
 // - torch::ops::bin_by_coordinates::bin_by_coordinates (unified)
 // - torch::ops::binned_select_knn::binned_select_knn (unified)
 // - torch::ops::binned_select_knn_grad::binned_select_knn_grad (unified)
-// - torch::ops::fastgraphcompute::index_replacer (CPU specific, check if CUDA version needed and how it's called)
+// - torch::ops::index_replacer::index_replacer (unified)
 // - etc. for other custom ops

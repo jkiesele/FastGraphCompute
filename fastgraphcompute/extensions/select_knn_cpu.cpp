@@ -3,14 +3,14 @@
 // #include <string> //size_t, just for helper function
 #include <cmath>
 
-#define CHECK_CPU(x) AT_ASSERTM(x.device().is_cpu(), #x " must be CPU tensor")
+#define CHECK_CPU(x) TORCH_CHECK(x.device().is_cpu(), #x " must be CPU tensor")
 #define I2D(i,j,Nj) j + Nj*i
 
 
 float calculateDistance(
     size_t i_v, 
     size_t j_v, 
-    const float_t *d_coord, 
+    const float *d_coord, 
     size_t n_coords) 
 {
     float distsq = 0;
@@ -25,7 +25,7 @@ float calculateDistance(
 
 int searchLargestDistance(
     size_t i_v, 
-    float_t *d_dist, 
+    float *d_dist, 
     size_t n_neigh, 
     float& maxdist) 
 {
@@ -45,7 +45,7 @@ int searchLargestDistance(
 
 void set_defaults(
     int32_t *d_indices,
-    float_t *d_dist,
+    float *d_dist,
     const size_t n_vert,
     const size_t n_neigh)
 {
@@ -68,18 +68,18 @@ void set_defaults(
 }
 
 void select_knn_kernel(
-    const float_t *d_coord,
+    const float *d_coord,
     const int32_t *d_row_splits,
     const int32_t *d_mask,
     int32_t *d_indices,
-    float_t *d_dist,
+    float *d_dist,
 
     const size_t n_vert,
     const size_t n_neigh,
     const size_t n_coords,
 
     const size_t j_rs,
-    const float_t max_radius) {
+    const float max_radius) {
 
     const size_t start_vert = d_row_splits[j_rs];
     const size_t end_vert = d_row_splits[j_rs + 1];
@@ -127,11 +127,11 @@ void select_knn_kernel(
 
 }
 
-void compute(const float_t *d_coord,
+void compute(const float *d_coord,
     const int32_t *d_row_splits,
     const int32_t *d_mask,
     int32_t *d_indices,
-    float_t *d_dist,
+    float *d_dist,
 
     const size_t n_vert,
     const size_t n_neigh,
@@ -187,10 +187,10 @@ select_knn_cpu(torch::Tensor coords,
     auto output_idx_tensor = torch::zeros({ n_vert, n_neighbours }, optionsIdx);
 
     // Input pointers to the compute function
-    auto d_coords = coords.data_ptr<float_t>();
+    auto d_coords = coords.data_ptr<float>();
     auto d_row_splits = row_splits.data_ptr<int32_t>();
     auto d_mask = mask.data_ptr<int32_t>();
-    auto d_output_dist = output_dist_tensor.data_ptr<float_t>();
+    auto d_output_dist = output_dist_tensor.data_ptr<float>();
     auto d_output_idx = output_idx_tensor.data_ptr<int32_t>();
 
     // Calling compute

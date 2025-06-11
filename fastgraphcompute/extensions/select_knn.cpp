@@ -39,7 +39,7 @@ std::tuple<torch::Tensor, torch::Tensor> select_knn_cpu_interface(
     CHECK_INPUT_CPU(coords);
     CHECK_INPUT_CPU(row_splits);
     CHECK_INPUT_CPU(mask);
-    return select_knn_cpu_fn(coords, row_splits, mask, n_neighbours, max_radius, mask_mode);
+    return select_knn_cpu(coords, row_splits, mask, n_neighbours, max_radius, mask_mode);
 }
 
 // CUDA Interface
