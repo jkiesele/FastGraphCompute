@@ -25,7 +25,7 @@ void index_replacer_cpu_kernel(
     }
 }
 
-torch::Tensor index_replacer_cpu(
+torch::Tensor index_replacer_cpu_fn(
     torch::Tensor to_be_replaced,
     torch::Tensor replacements
 ) {
@@ -46,8 +46,4 @@ torch::Tensor index_replacer_cpu(
     );
 
     return replaced;
-}
-
-TORCH_LIBRARY(index_replacer_cpu, m) {
-    m.def("index_replacer_cpu", index_replacer_cpu);
 }

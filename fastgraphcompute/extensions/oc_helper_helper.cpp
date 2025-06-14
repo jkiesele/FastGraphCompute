@@ -77,7 +77,7 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> max_same_valued_entries_
         std::tie(unique_vals, counts) = unique_with_counts(asso_idx_filtered);
 
         // Find the maximum count and store it
-        int64_t max_count = counts.max().item<int64_t>();
+        int64_t max_count = counts.max().item().to<int64_t>();
         max_per_split[rs_idx] = max_count;
         objects_per_split[rs_idx] = unique_vals.size(0);
     }
