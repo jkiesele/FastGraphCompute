@@ -74,7 +74,7 @@ extensions = []
 # Unified binned_select_knn
 if DO_CUDA:
     extensions.append(CUDAExtension(
-        'fastgraphcompute.extensions.binned_select_knn',
+        'fastgraphcompute.extensions.binned_select_knn_lib',
         ['fastgraphcompute/extensions/binned_select_knn.cpp',
          'fastgraphcompute/extensions/binned_select_knn_cpu.cpp',
          'fastgraphcompute/extensions/binned_select_knn_cuda_kernel.cu'],
@@ -82,7 +82,7 @@ if DO_CUDA:
     ))
 elif DO_CPU:
     extensions.append(CppExtension(
-        'fastgraphcompute.extensions.binned_select_knn',
+        'fastgraphcompute.extensions.binned_select_knn_lib',
         ['fastgraphcompute/extensions/binned_select_knn.cpp',
          'fastgraphcompute/extensions/binned_select_knn_cpu.cpp'],
         **cpu_kwargs
@@ -91,7 +91,7 @@ elif DO_CPU:
 # Unified bin_by_coordinates
 if DO_CUDA:
     extensions.append(CUDAExtension(
-        'fastgraphcompute.extensions.bin_by_coordinates',
+        'fastgraphcompute.extensions.bin_by_coordinates_lib',
         ['fastgraphcompute/extensions/bin_by_coordinates.cpp',
          'fastgraphcompute/extensions/bin_by_coordinates_cpu.cpp',
          'fastgraphcompute/extensions/bin_by_coordinates_cuda_kernel.cu'],
@@ -99,7 +99,7 @@ if DO_CUDA:
     ))
 elif DO_CPU:
     extensions.append(CppExtension(
-        'fastgraphcompute.extensions.bin_by_coordinates',
+        'fastgraphcompute.extensions.bin_by_coordinates_lib',
         ['fastgraphcompute/extensions/bin_by_coordinates.cpp',
          'fastgraphcompute/extensions/bin_by_coordinates_cpu.cpp'],
         **cpu_kwargs
@@ -108,7 +108,7 @@ elif DO_CPU:
 # Unified index_replacer
 if DO_CUDA:
     extensions.append(CUDAExtension(
-        'fastgraphcompute.extensions.index_replacer',
+        'fastgraphcompute.extensions.index_replacer_lib',
         ['fastgraphcompute/extensions/index_replacer.cpp',
          'fastgraphcompute/extensions/index_replacer_cpu.cpp',
          'fastgraphcompute/extensions/index_replacer_cuda_kernel.cu'],
@@ -116,7 +116,7 @@ if DO_CUDA:
     ))
 elif DO_CPU:
     extensions.append(CppExtension(
-        'fastgraphcompute.extensions.index_replacer',
+        'fastgraphcompute.extensions.index_replacer_lib',
         ['fastgraphcompute/extensions/index_replacer.cpp',
          'fastgraphcompute/extensions/index_replacer_cpu.cpp'],
         **cpu_kwargs
@@ -125,7 +125,7 @@ elif DO_CPU:
 # Unified select_knn (fixed to include select_knn_cpu.cpp)
 if DO_CUDA:
     extensions.append(CUDAExtension(
-        'fastgraphcompute.extensions.select_knn',
+        'fastgraphcompute.extensions.select_knn_lib',
         ['fastgraphcompute/extensions/select_knn.cpp',
          'fastgraphcompute/extensions/select_knn_cpu.cpp',
          'fastgraphcompute/extensions/select_knn_cuda_kernel.cu'],
@@ -133,7 +133,7 @@ if DO_CUDA:
     ))
 elif DO_CPU:
     extensions.append(CppExtension(
-        'fastgraphcompute.extensions.select_knn',
+        'fastgraphcompute.extensions.select_knn_lib',
         ['fastgraphcompute/extensions/select_knn.cpp',
          'fastgraphcompute/extensions/select_knn_cpu.cpp'],
         **cpu_kwargs
@@ -142,7 +142,7 @@ elif DO_CPU:
 # Unified binned_select_knn_grad
 if DO_CUDA:
     extensions.append(CUDAExtension(
-        'fastgraphcompute.extensions.binned_select_knn_grad',
+        'fastgraphcompute.extensions.binned_select_knn_grad_lib',
         ['fastgraphcompute/extensions/binned_select_knn_grad.cpp',
          'fastgraphcompute/extensions/binned_select_knn_grad_cpu.cpp',
          'fastgraphcompute/extensions/binned_select_knn_grad_cuda_kernel.cu'],
@@ -150,7 +150,7 @@ if DO_CUDA:
     ))
 elif DO_CPU:
     extensions.append(CppExtension(
-        'fastgraphcompute.extensions.binned_select_knn_grad',
+        'fastgraphcompute.extensions.binned_select_knn_grad_lib',
         ['fastgraphcompute/extensions/binned_select_knn_grad.cpp',
          'fastgraphcompute/extensions/binned_select_knn_grad_cpu.cpp'],
         **cpu_kwargs
@@ -161,7 +161,7 @@ elif DO_CPU:
 
 # NEW: Autograd binned KNN (fastgraphcompute_custom_ops)
 extensions.append(CppExtension(
-    'fastgraphcompute.extensions.binned_knn_autograd_kernel',
+    'fastgraphcompute.extensions.binned_knn_autograd_kernel_lib',
     ['fastgraphcompute/extensions/binned_knn_autograd_kernel.cpp'],
     **cpu_kwargs
 ))

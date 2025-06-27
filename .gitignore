@@ -143,6 +143,6 @@ dmypy.json
 .gitattributes
 .gitmodules
 
-# ai tools
+# claude
 .claude/
 .cursor/

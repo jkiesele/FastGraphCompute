@@ -1,9 +1,8 @@
 #include <torch/extension.h>
 #include <vector>
+#include "helpers.h"
 
 #define CHECK_CPU(x) TORCH_CHECK(x.device().is_cpu(), #x " must be CPU tensor")
-#define I2D(i,j,Nj) ((i) * (Nj) + (j))
-
 
 static void calc(
         const float * d_coords,
@@ -109,8 +108,8 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> bin_by_coordinates_cpu_f
 ) {
     CHECK_CPU(coordinates);
     CHECK_CPU(row_splits);
-    CHECK_CPU(bin_width);
-    CHECK_CPU(nbins);
+    TORCH_CHECK(bin_width.device().is_cpu(), "bin_width must be on CPU");
+    TORCH_CHECK(nbins.device().is_cpu(), "nbins must be on CPU");
 
     const auto n_vert = coordinates.size(0);
     const auto n_coords = coordinates.size(1);

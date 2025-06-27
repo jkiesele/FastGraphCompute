@@ -3,13 +3,13 @@
 #include <tuple>
 #include <algorithm>
 
-// Forward declarations for functions from other extensions
+// Forward declaration for bin_by_coordinates function
 std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor> 
 bin_by_coordinates(
-    torch::Tensor coordinates,
-    torch::Tensor row_splits,
-    torch::Tensor bin_width,
-    torch::Tensor n_bins,
+    const torch::Tensor& coordinates,
+    const torch::Tensor& row_splits,
+    c10::optional<torch::Tensor> bin_width_opt,
+    c10::optional<torch::Tensor> n_bins_opt,
     bool calc_n_per_bin,
     bool pre_normalized);
 

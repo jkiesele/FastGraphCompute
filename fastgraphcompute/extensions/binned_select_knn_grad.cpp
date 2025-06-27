@@ -2,14 +2,14 @@
 
 // Forward declarations for the actual implementations
 // (implemented in binned_select_knn_grad_cpu.cpp and binned_select_knn_grad_cuda_kernel.cu)
-torch::Tensor binned_select_knn_grad_cpu(
+torch::Tensor binned_select_knn_grad_cpu_fn(
     torch::Tensor grad_distances,
     torch::Tensor indices,
     torch::Tensor distances,
     torch::Tensor coordinates
 );
 
-torch::Tensor binned_select_knn_grad_cuda(
+torch::Tensor binned_select_knn_grad_cuda_fn(
     torch::Tensor grad_distances,
     torch::Tensor indices,
     torch::Tensor distances,
@@ -34,7 +34,7 @@ torch::Tensor binned_select_knn_grad_cuda_interface(
     CHECK_INPUT(indices);
     CHECK_INPUT(distances);
     CHECK_INPUT(coordinates);
-    return binned_select_knn_grad_cuda(grad_distances, indices, distances, coordinates);
+    return binned_select_knn_grad_cuda_fn(grad_distances, indices, distances, coordinates);
 }
 
 torch::Tensor binned_select_knn_grad_cpu_interface(
@@ -47,7 +47,7 @@ torch::Tensor binned_select_knn_grad_cpu_interface(
     CHECK_CPU_INPUT(indices);
     CHECK_CPU_INPUT(distances);
     CHECK_CPU_INPUT(coordinates);
-    return binned_select_knn_grad_cpu(grad_distances, indices, distances, coordinates);
+    return binned_select_knn_grad_cpu_fn(grad_distances, indices, distances, coordinates);
 }
 
 TORCH_LIBRARY(binned_select_knn_grad, m) {

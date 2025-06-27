@@ -10,7 +10,7 @@ __all__ = [
     'index_replacer',
     'oc_helper_matrices',
     'select_with_default',
-    'binned_select_knn_autograd'
+    # 'binned_select_knn_autograd'
 ]
 
 print("fastgraphcompute extensions __init__.py loaded")
