@@ -85,7 +85,7 @@ static void select_knn_grad_neighloop_kernel(
     }
 }
 
-torch::Tensor binned_select_knn_grad_cuda(
+torch::Tensor binned_select_knn_grad_cuda_fn(
     torch::Tensor grad_distances,
     torch::Tensor indices,
     torch::Tensor distances,

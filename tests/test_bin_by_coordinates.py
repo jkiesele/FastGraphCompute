@@ -6,17 +6,6 @@ import fastgraphcompute.extensions
 from fastgraphcompute import bin_by_coordinates
 from typing import Tuple
 
-# Load the shared library
-cpu_so_file = osp.join(osp.dirname(osp.realpath(
-    fastgraphcompute.extensions.__file__)), 'bin_by_coordinates_cpu.so')
-torch.ops.load_library(cpu_so_file)
-
-if torch.cuda.is_available():
-    cuda_so_file = osp.join(osp.dirname(osp.realpath(
-        fastgraphcompute.extensions.__file__)), 'bin_by_coordinates_cuda.so')
-    torch.ops.load_library(cuda_so_file)
-
-
 class BinByCoordinatesModule(torch.nn.Module):
     def __init__(self, cuda=False):
         super().__init__()

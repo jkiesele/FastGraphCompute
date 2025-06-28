@@ -9,12 +9,15 @@ torch::Tensor binned_select_knn_grad_cpu_fn(
     torch::Tensor coordinates
 );
 
+
+#ifdef WITH_CUDA
 torch::Tensor binned_select_knn_grad_cuda_fn(
     torch::Tensor grad_distances,
     torch::Tensor indices,
     torch::Tensor distances,
     torch::Tensor coordinates
 );
+#endif
 
 // Common input checking macros
 #define CHECK_CUDA(x) TORCH_CHECK(x.device().is_cuda(), #x " must be a CUDA tensor")
@@ -24,6 +27,7 @@ torch::Tensor binned_select_knn_grad_cuda_fn(
 #define CHECK_CPU(x) TORCH_CHECK(x.device().is_cpu(), #x " must be a CPU tensor")
 #define CHECK_CPU_INPUT(x) CHECK_CPU(x); CHECK_CONTIGUOUS(x)
 
+#ifdef WITH_CUDA
 torch::Tensor binned_select_knn_grad_cuda_interface(
     torch::Tensor grad_distances,
     torch::Tensor indices,
@@ -36,6 +40,7 @@ torch::Tensor binned_select_knn_grad_cuda_interface(
     CHECK_INPUT(coordinates);
     return binned_select_knn_grad_cuda_fn(grad_distances, indices, distances, coordinates);
 }
+#endif
 
 torch::Tensor binned_select_knn_grad_cpu_interface(
     torch::Tensor grad_distances,
@@ -54,9 +59,11 @@ TORCH_LIBRARY(binned_select_knn_grad, m) {
     m.def("binned_select_knn_grad(Tensor grad_distances, Tensor indices, Tensor distances, Tensor coordinates) -> Tensor");
 }
 
+#ifdef WITH_CUDA
 TORCH_LIBRARY_IMPL(binned_select_knn_grad, CUDA, m) {
     m.impl("binned_select_knn_grad", &binned_select_knn_grad_cuda_interface);
 }
+#endif
 
 TORCH_LIBRARY_IMPL(binned_select_knn_grad, CPU, m) {
     m.impl("binned_select_knn_grad", &binned_select_knn_grad_cpu_interface);
