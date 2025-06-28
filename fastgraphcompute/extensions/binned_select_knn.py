@@ -7,15 +7,7 @@ from typing import Optional, Tuple
 
 # load the custom extension library
 torch.ops.load_library(osp.join(osp.dirname(
-    osp.realpath(__file__)), 'binned_select_knn_lib.so'))
-
-# load the gradient library
-torch.ops.load_library(osp.join(osp.dirname(
-    osp.realpath(__file__)), 'binned_select_knn_grad_lib.so'))
-
-# load the autograd kernel library
-torch.ops.load_library(osp.join(osp.dirname(
-    osp.realpath(__file__)), 'binned_knn_autograd_kernel_lib.so'))
+    osp.realpath(__file__)), 'binned_knn_ops.so'))
 
 
 @torch.jit.script

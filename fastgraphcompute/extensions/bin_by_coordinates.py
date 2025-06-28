@@ -5,7 +5,7 @@ from typing import Tuple
 
 # load the custom extension library
 torch.ops.load_library(osp.join(osp.dirname(
-    osp.realpath(__file__)), 'bin_by_coordinates_lib.so'))
+    osp.realpath(__file__)), 'binned_knn_ops.so'))
 
 
 def bin_by_coordinates(coordinates: torch.Tensor, row_splits: torch.Tensor, bin_width: torch.Tensor = None, n_bins: torch.Tensor = None, calc_n_per_bin: bool = True, pre_normalized: bool = False, name: str = "") -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
