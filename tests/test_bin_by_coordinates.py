@@ -9,11 +9,6 @@ from typing import Tuple
 class BinByCoordinatesModule(torch.nn.Module):
     def __init__(self, cuda=False):
         super().__init__()
-        self.cuda_mode = cuda
-        if not cuda:
-            self.op = torch.ops.bin_by_coordinates_cpu.bin_by_coordinates_cpu
-        else:
-            self.op = torch.ops.bin_by_coordinates_cuda.bin_by_coordinates
 
     def forward(
         self,
@@ -22,8 +17,8 @@ class BinByCoordinatesModule(torch.nn.Module):
         bin_width: torch.Tensor,
         nbins: torch.Tensor,
         return_all: bool
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        return self.op(coordinates, row_splits, bin_width, nbins, return_all)
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        return bin_by_coordinates(coordinates, row_splits, bin_width, nbins, return_all)
 
 
 class TestBinByCoordinates(unittest.TestCase):
@@ -48,21 +43,12 @@ class TestBinByCoordinates(unittest.TestCase):
         self.row_splits = torch.tensor([0, 3], dtype=torch.int32)
 
     def do_simple_binning(self, cuda=False):
-        if not cuda:
-            op = torch.ops.bin_by_coordinates_cpu.bin_by_coordinates_cpu
-            coord = self.coordinates
-            rs = self.row_splits
-            bin_width = self.bin_width
-            nbins = self.nbins
-        else:
-            op = torch.ops.bin_by_coordinates_cuda.bin_by_coordinates
-            coord = self.coordinates.to('cuda')
-            rs = self.row_splits.to('cuda')
-            bin_width = self.bin_width.to('cuda')
-            nbins = self.nbins.to('cuda')
-
-        # Test basic functionality
-        output_assigned_bin, output_flat_assigned_bin, output_n_per_bin = op(
+        coord = self.coordinates.to('cuda') if cuda else self.coordinates
+        rs = self.row_splits.to('cuda') if cuda else self.row_splits
+        bin_width = self.bin_width.to('cuda') if cuda else self.bin_width
+        nbins = self.nbins.to('cuda') if cuda else self.nbins
+        
+        output_assigned_bin, output_flat_assigned_bin, _, _, output_n_per_bin = bin_by_coordinates(
             coord, rs, bin_width, nbins, True)
 
         if cuda:
@@ -129,20 +115,12 @@ class TestBinByCoordinates(unittest.TestCase):
             [0.7, 0.7]
         ], dtype=torch.float32)
 
-        if not cuda:
-            op = torch.ops.bin_by_coordinates_cpu.bin_by_coordinates_cpu
-            coord = coordinates
-            rs = self.row_splits
-            bin_width = self.bin_width
-            nbins = self.nbins
-        else:
-            op = torch.ops.bin_by_coordinates_cuda.bin_by_coordinates
-            coord = coordinates.to('cuda')
-            rs = self.row_splits.to('cuda')
-            bin_width = self.bin_width.to('cuda')
-            nbins = self.nbins.to('cuda')
+        coord = coordinates.to('cuda') if cuda else coordinates
+        rs = self.row_splits.to('cuda') if cuda else self.row_splits
+        bin_width = self.bin_width.to('cuda') if cuda else self.bin_width
+        nbins = self.nbins.to('cuda') if cuda else self.nbins
 
-        output_assigned_bin, output_flat_assigned_bin, output_n_per_bin = op(
+        output_assigned_bin, output_flat_assigned_bin, _, _, output_n_per_bin = bin_by_coordinates(
             coord, rs, bin_width, nbins, True)
 
         if cuda:
@@ -202,18 +180,13 @@ class TestBinByCoordinates(unittest.TestCase):
         nbins = torch.tensor([10]*ndims, dtype=torch.int32)
         row_splits = torch.tensor([0, 300, 700, 1000], dtype=torch.int32)
 
-        if not cuda:
-            op = torch.ops.bin_by_coordinates_cpu.bin_by_coordinates_cpu
-            coord = coordinates
-            rs = row_splits
-        else:
-            op = torch.ops.bin_by_coordinates_cuda.bin_by_coordinates
-            coord = coordinates.to('cuda')
-            rs = row_splits.to('cuda')
+        coord = coordinates.to('cuda') if cuda else coordinates
+        rs = row_splits.to('cuda') if cuda else row_splits
+        if cuda:
             bin_width = bin_width.to('cuda')
             nbins = nbins.to('cuda')
 
-        output_assigned_bin, output_flat_assigned_bin, output_n_per_bin = op(
+        output_assigned_bin, output_flat_assigned_bin, _, _, output_n_per_bin = bin_by_coordinates(
             coord, rs, bin_width, nbins, True)
 
         # sanity check. e.g. the entry in the first dimension of output_assigned_bin should correspond to the

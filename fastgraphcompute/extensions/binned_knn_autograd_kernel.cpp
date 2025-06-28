@@ -45,13 +45,13 @@ torch::Tensor index_replacer_cpu_fn(
     torch::Tensor to_be_replaced,
     torch::Tensor replacements);
 
-torch::Tensor binned_select_knn_grad_cuda(
+torch::Tensor binned_select_knn_grad_cuda_fn(
     torch::Tensor grad_distances,
     torch::Tensor indices,
     torch::Tensor distances,
     torch::Tensor coordinates);
 
-torch::Tensor binned_select_knn_grad_cpu(
+torch::Tensor binned_select_knn_grad_cpu_fn(
     torch::Tensor grad_distances,
     torch::Tensor indices,
     torch::Tensor distances,
@@ -228,10 +228,10 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
 
                 // Call gradient function directly based on device type
                 if (k_grad_dist.device().is_cuda()) {
-                    grad_coordinates = binned_select_knn_grad_cuda(
+                    grad_coordinates = binned_select_knn_grad_cuda_fn(
                         k_grad_dist, k_idx, k_dist, k_coords);
                 } else {
-                    grad_coordinates = binned_select_knn_grad_cpu(
+                    grad_coordinates = binned_select_knn_grad_cpu_fn(
                         k_grad_dist, k_idx, k_dist, k_coords);
                 }
             } else {
