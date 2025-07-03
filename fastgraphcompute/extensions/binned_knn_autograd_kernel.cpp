@@ -97,6 +97,7 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
 
         auto original_device = coords.device();
         auto int32_options = torch::TensorOptions().dtype(torch::kInt32).device(original_device);
+        auto int64_options = torch::TensorOptions().dtype(torch::kInt64).device(original_device);
         int64_t max_bin_dims = std::min(max_bin_dims_user, coords.size(1));
 
         // Calculate bins and prepare coordinates for binning
@@ -116,8 +117,8 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
 
         // Sort by bin assignment
         auto sorting_indices = binning.numel() > 0 ? 
-            torch::argsort(binning, static_cast<int64_t>(0)).to(torch::kInt32) :
-            torch::empty({0}, binning.options().dtype(torch::kInt32));
+            torch::argsort(binning, static_cast<int64_t>(0)).to(torch::kInt64) :
+            torch::empty({0}, binning.options().dtype(torch::kInt64));
 
         // Gather sorted tensors
         auto scoords = coords.index_select(static_cast<int64_t>(0), sorting_indices);
@@ -130,11 +131,11 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
         }
 
         // Create bin boundaries - fix torch::cat usage
-        auto zero_tensor = torch::zeros({1}, int32_options.device(nper.device()));
+        auto zero_tensor = torch::zeros({1}, int64_options.device(nper.device()));
         std::vector<torch::Tensor> tensor_list;
         tensor_list.push_back(zero_tensor);
-        tensor_list.push_back(nper);
-        auto bin_boundaries = torch::cumsum(torch::cat(tensor_list, static_cast<int64_t>(0)), static_cast<int64_t>(0), torch::kInt32);
+        tensor_list.push_back(nper.to(torch::kInt64));
+        auto bin_boundaries = torch::cumsum(torch::cat(tensor_list, static_cast<int64_t>(0)), static_cast<int64_t>(0), torch::kInt64);
 
         // Fix the template syntax for item()
         auto max_bin_boundaries = torch::max(bin_boundaries).item().toInt();
@@ -183,7 +184,7 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
         }
 
         // Scatter results back to original order
-        auto sorting_indices_long = sorting_indices.to(torch::kInt64);
+        auto sorting_indices_long = sorting_indices; // already int64
         auto dist_final = torch::empty_like(dist_sorted, dist_sorted.options().device(original_device));
         auto idx_final = torch::empty_like(idx_unsorted, idx_unsorted.options().device(original_device));
 

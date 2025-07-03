@@ -18,10 +18,8 @@ class BinnedSelectKnnModule(torch.nn.Module):
         coordinates: torch.Tensor,
         row_splits: torch.Tensor,
         direction: Optional[torch.Tensor] = None,
-        n_bins: Optional[int] = None
+        n_bins: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        # Import or reference binned_select_knn from your module
-        from fastgraphcompute import binned_select_knn
         return binned_select_knn(K, coordinates, row_splits, direction=direction, n_bins=n_bins)
 
 class TestBinnedSelectKnn(unittest.TestCase):
@@ -31,7 +29,7 @@ class TestBinnedSelectKnn(unittest.TestCase):
         Args:
             K (int): Number of nearest neighbors.
             coordinates (torch.Tensor): The input coordinates (n_points, n_dims).
-    
+
         Returns:
             torch.Tensor: Indices of the K nearest neighbors for each point.
             torch.Tensor: Distances**2 to the K nearest neighbors for each point.
@@ -68,9 +66,9 @@ class TestBinnedSelectKnn(unittest.TestCase):
         #the first column is the distance to itself, so it should be zero and the index should be range(len(coords)), assert:
         assert torch.allclose(dist_pytorch_sorted[:, 0], torch.zeros_like(dist_pytorch_sorted[:, 0]))
         assert torch.all(idx_pytorch_sorted[:, 0] == torch.arange(len(coordinates), device=coordinates.device))
-        
+
         return idx_pytorch_sorted, dist_pytorch_sorted**2
-    
+
     def binned_select_knn_tester(self, K, coordinates, row_splits, direction=None, n_bins=None):
         """
         Returns:
@@ -99,14 +97,14 @@ class TestBinnedSelectKnn(unittest.TestCase):
 
         # Generate random coordinates (3D points)
         coordinates = torch.rand((n_points, n_dims), dtype=torch.float32, device='cpu') #random works differently on cpu and gpu
-        coordinates = coordinates.to(device) 
-        
+        coordinates = coordinates.to(device).contiguous()  # Ensure contiguity after device transfer
+
         # Create dummy row_splits (assuming uniform splitting for simplicity)
         row_splits = torch.tensor([0, n_points//3, n_points//2,  n_points], dtype=torch.int32, device=device)
-        
+
         # Optionally create a dummy direction tensor
         direction = None  # For this test, we won't use direction constraints
-        
+
         # Call your binned_select_knn function
         idx_knn_sorted, dist_knn_sorted = self.binned_select_knn_tester(K, coordinates, row_splits, direction=direction, n_bins=n_bins)
 
@@ -146,15 +144,16 @@ class TestBinnedSelectKnn(unittest.TestCase):
 
     def test_large_binned_select_knn_cpu(self):
         self.do_large_test(device='cpu', strict=False)
-    
+
     @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
     def test_large_binned_select_knn_cuda(self):
         self.do_large_test(device='cuda', strict=False)
 
-
+    # TODO: these two test too many dimensions. Ask @Jan Kieseler about removing
+    # these or altering the codebase
     def test_large_binned_select_knn_cpu_D8(self):
         self.do_large_test(device='cpu', strict=False, n_dims=8)
-    
+
     @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
     def test_large_binned_select_knn_cuda_D8(self):
         self.do_large_test(device='cuda', strict=False, n_dims=8)
@@ -169,6 +168,7 @@ class TestBinnedSelectKnn(unittest.TestCase):
 
         # Generate random coordinates and set requires_grad=True to track gradients
         coordinates = torch.rand((n_points, n_dims), dtype=torch.float32, device=device, requires_grad=True)-0.5
+        coordinates = coordinates.contiguous()  # Ensure contiguity after arithmetic operation
 
         # Create dummy row_splits (assuming uniform splitting for simplicity)
         row_splits = torch.tensor([0, n_points], dtype=torch.int32, device=device)
@@ -181,7 +181,7 @@ class TestBinnedSelectKnn(unittest.TestCase):
 
         #create a non-trivial gradient
         grad_knn = torch.autograd.grad(outputs=(n_points*(dist_knn+rand_offsets)**2).mean()-dist_knn.mean(), inputs=coordinates)[0]
-        
+
         idx_pytorch, dist_pytorch = self.knn_pytorch_baseline(K, coordinates)
 
         #create same non-trivial gradient
@@ -192,7 +192,7 @@ class TestBinnedSelectKnn(unittest.TestCase):
         self.assertTrue(torch.allclose(dist_knn, dist_pytorch, atol=1e-5, rtol=1e-3), "Distances do not match!")
 
         # Compare the gradients with some tolerance
-        self.assertTrue(torch.allclose(grad_knn, grad_pytorch, atol=1e-5, rtol=1e-3), 
+        self.assertTrue(torch.allclose(grad_knn, grad_pytorch, atol=1e-5, rtol=1e-3),
                         "Gradients from custom implementation and torch-native kNN do not match!\n"+str(grad_knn)+'\nversus target\n'+str(grad_pytorch))
 
 
@@ -222,13 +222,14 @@ class TestBinnedSelectKnn(unittest.TestCase):
         coordinates = torch.randn(N, D)
         row_splits = torch.tensor([0, N], dtype=torch.int32)
         direction = None  # or torch.randn(N, D) if needed
-        n_bins = 4
+        n_bins_val = 4
 
         for cuda in (False, True) if torch.cuda.is_available() else (False,):
             device = 'cuda' if cuda else 'cpu'
             coords = coordinates.to(device)
             rs = row_splits.to(device)
             dirn = direction.to(device) if direction is not None else None
+            n_bins = torch.tensor(n_bins_val, dtype=torch.int32, device=device)
 
             module = BinnedSelectKnnModule(cuda=cuda).to(device)
             try:

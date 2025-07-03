@@ -71,6 +71,11 @@ def binned_select_knn(K: int,
     if not isinstance(max_bin_dims, int):
         max_bin_dims = int(max_bin_dims)
 
+    # Automatically adjust max_bin_dims based on coordinate dimensions
+    coord_dims = coords.shape[1]
+    if max_bin_dims < coord_dims:
+        max_bin_dims = coord_dims
+
     # Ensure row_splits is a tensor
     if not isinstance(row_splits, torch.Tensor):
         row_splits = torch.tensor(
@@ -79,6 +84,32 @@ def binned_select_knn(K: int,
     # Ensure coordinates are float32 for CUDA kernel compatibility
     if coords.dtype != torch.float32:
         coords = coords.to(dtype=torch.float32)
+
+    # Convert n_bins to tensor if it's an integer
+    if n_bins is not None and not isinstance(n_bins, torch.Tensor):
+        n_bins = torch.tensor(n_bins, dtype=torch.int32, device=coords.device)
+
+    # For autograd tensors, use clone().contiguous() to ensure clean contiguous tensors
+    if coords.requires_grad:
+        coords = coords.clone().contiguous()
+    else:
+        coords = coords.contiguous()
+
+    row_splits = row_splits.contiguous()
+
+    if direction is not None:
+        if direction.requires_grad:
+            direction = direction.clone().contiguous()
+        else:
+            direction = direction.contiguous()
+
+    if n_bins is not None:
+        n_bins = n_bins.contiguous()
+
+    row_splits = row_splits.to(dtype=torch.int64, copy=False)
+
+    if n_bins is not None and isinstance(n_bins, torch.Tensor):
+        n_bins = n_bins.to(dtype=torch.int64, copy=False)
 
     # Use the C++ autograd kernel
     idx, dist = torch.ops.fastgraphcompute_custom_ops.binned_select_knn(

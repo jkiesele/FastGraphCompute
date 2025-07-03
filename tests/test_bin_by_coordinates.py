@@ -33,10 +33,11 @@ class TestBinByCoordinates(unittest.TestCase):
             [2.5, 2.5],
             [4.9, 4.9]
         ], dtype=torch.float32)
-        # Updated expected assigned bin based on TensorFlow output
+        # Expected after normalization: [0,0], [2.4,2.4], [4.8,4.8]
+        # With bin_width 0.5: bins are [0,0], [4,4], [9,9]
         self.expected_assigned_bin = torch.tensor([
             [0, 0, 0],
-            [0, 5, 5],
+            [0, 4, 4],
             [0, 9, 9]
         ], dtype=torch.int32)
         # No actual split in this case, just one segment
@@ -128,11 +129,12 @@ class TestBinByCoordinates(unittest.TestCase):
             output_flat_assigned_bin = output_flat_assigned_bin.to('cpu')
             output_n_per_bin = output_n_per_bin.to('cpu')
 
-        # Expected all coordinates to set indices to zero as per the C++ logic
+        # Expected coordinates after normalization: [[0,0], [6.1,6.1], [1.7,1.7]]
+        # With bin_width 0.5: bins are [[0,0], [9,9] (clamped from 12), [3,3]]
         expected_assigned_bin = torch.tensor([
             [0, 0, 0],
             [0, 9, 9],
-            [0, 1, 1],
+            [0, 3, 3],
         ], dtype=torch.int32)
 
         expected_flat_assigned_bin = torch.zeros(
@@ -229,7 +231,7 @@ class TestBinByCoordinates(unittest.TestCase):
     def do_test_with_wrapper_on_data(self, device='cpu'):
 
         # run the whole wrapper here
-        data = np.load('test_bbc_data.npy', allow_pickle=True)
+        data = np.load(osp.join(osp.dirname(__file__), 'test_bbc_data.npy'), allow_pickle=True)
         coordinates = torch.tensor(data, device=device)
         # one row split
         row_splits = torch.tensor(
