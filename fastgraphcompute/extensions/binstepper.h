@@ -1,5 +1,6 @@
 
 #include <cmath>
+#include <limits>
 
 // some cuda/cpu compatibility defines
 #ifdef __CUDA_ARCH__
@@ -25,6 +26,11 @@ public:
     binstepper(const T* bins_per_dim, const T* glidxs) {
         total_cap_ = 1;
         for (T i = 0; i < N_dims; i++) {
+            // Check for integer overflow in multiplication
+            if (total_cap_ != 0 && bins_per_dim[i] > std::numeric_limits<T>::max() / total_cap_) {
+                total_cap_ = std::numeric_limits<T>::max(); // Saturate to prevent overflow
+                break;
+            }
             total_cap_ *= bins_per_dim[i];
             total_bins_[i] = bins_per_dim[i];  // just a copy to local memory
             glidxs_[i] = glidxs[i];
@@ -114,13 +120,22 @@ struct ccoords2flat_binstepper {
     // BINSTEPPER_HOST_DEVICE
     ccoords2flat_binstepper(const T dims) {
         this->dims = dims;
-        low_bin_indices = new T[dims];
-        high_bin_indices = new T[dims];
+        if (dims > 0) {
+            low_bin_indices = new T[dims];
+            high_bin_indices = new T[dims];
+        } else {
+            low_bin_indices = nullptr;
+            high_bin_indices = nullptr;
+        }
     }
 
     ~ccoords2flat_binstepper() {
-        delete[] low_bin_indices;
-        delete[] high_bin_indices;
+        if (low_bin_indices) {
+            delete[] low_bin_indices;
+        }
+        if (high_bin_indices) {
+            delete[] high_bin_indices;
+        }
     }
 
     // BINSTEPPER_HOST_DEVICE

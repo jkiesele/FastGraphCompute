@@ -31,10 +31,10 @@ static void select_knn_grad_selfloop_kernel(
         const T n_vert,
         const T n_neigh,
         const T n_coords) {
-    size_t i_v =  blockIdx.x * blockDim.x + threadIdx.x;
+    int64_t i_v =  blockIdx.x * blockDim.x + threadIdx.x;
     if(i_v >= n_vert)
         return;
-    size_t nu_c= blockIdx.y * blockDim.y + threadIdx.y;
+    int64_t nu_c= blockIdx.y * blockDim.y + threadIdx.y;
     if(nu_c >= n_coords)
         return;
     const float xinu = d_coord[I2D(i_v,nu_c,n_coords)];
@@ -64,10 +64,10 @@ static void select_knn_grad_neighloop_kernel(
         const T n_vert,
         const T n_neigh,
         const T n_coords){
-    size_t i_v =  blockIdx.x * blockDim.x + threadIdx.x;
+    int64_t i_v =  blockIdx.x * blockDim.x + threadIdx.x;
     if(i_v >= n_vert)
         return;
-    size_t nu_c= blockIdx.y * blockDim.y + threadIdx.y;
+    int64_t nu_c= blockIdx.y * blockDim.y + threadIdx.y;
     if(nu_c >= n_coords)
         return;
     const float xinu = d_coord[I2D(i_v,nu_c,n_coords)];
@@ -101,10 +101,10 @@ torch::Tensor binned_select_knn_grad_cuda_fn(
     auto options_float = torch::TensorOptions().dtype(torch::kFloat32).device(coordinates.device());
     torch::Tensor grad_coords = torch::empty({n_vert, n_coords}, options_float);
     grid_and_block gb(n_vert,256,n_coords,4);
-    if (indices.scalar_type() == torch::kInt32) {
-        select_knn_grad_selfloop_kernel<int32_t><<<gb.grid(),gb.block()>>>(
+    if (indices.scalar_type() == torch::kInt64) {
+        select_knn_grad_selfloop_kernel<int64_t><<<gb.grid(),gb.block()>>>(
             grad_distances.data_ptr<float>(),
-            indices.data_ptr<int32_t>(),
+            indices.data_ptr<int64_t>(),
             distances.data_ptr<float>(),
             coordinates.data_ptr<float>(),
             grad_coords.data_ptr<float>(),
@@ -115,9 +115,9 @@ torch::Tensor binned_select_knn_grad_cuda_fn(
         C10_CUDA_KERNEL_LAUNCH_CHECK();
         cudaDeviceSynchronize();
         C10_CUDA_KERNEL_LAUNCH_CHECK();
-        select_knn_grad_neighloop_kernel<int32_t><<<gb.grid(),gb.block()>>>(
+        select_knn_grad_neighloop_kernel<int64_t><<<gb.grid(),gb.block()>>>(
             grad_distances.data_ptr<float>(),
-            indices.data_ptr<int32_t>(),
+            indices.data_ptr<int64_t>(),
             distances.data_ptr<float>(),
             coordinates.data_ptr<float>(),
             grad_coords.data_ptr<float>(),

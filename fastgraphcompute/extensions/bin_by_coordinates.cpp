@@ -89,7 +89,7 @@ bin_by_coordinates(
         final_bin_width = bin_width;
         // Calculate n_bins from bin_width if not provided (i.e. undefined or empty)
         if (!n_bins.defined() || n_bins.numel() == 0) {
-            final_n_bins = (dmax_coords / final_bin_width).to(torch::kInt32) + 1;
+            final_n_bins = (dmax_coords / final_bin_width).to(torch::kInt64) + 1;
         } else {
             final_n_bins = n_bins;
         }
@@ -121,9 +121,9 @@ bin_by_coordinates(
     // Call the appropriate implementation based on device type
     std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> result;
     if (coords.device().is_cuda()) {
-        result = bin_by_coordinates_cuda_fn(coords, row_splits.to(torch::kInt32), final_bin_width, final_n_bins, calc_n_per_bin);
+        result = bin_by_coordinates_cuda_fn(coords, row_splits.to(torch::kInt64), final_bin_width, final_n_bins, calc_n_per_bin);
     } else {
-        result = bin_by_coordinates_cpu_fn(coords, row_splits.to(torch::kInt32), final_bin_width, final_n_bins, calc_n_per_bin);
+        result = bin_by_coordinates_cpu_fn(coords, row_splits.to(torch::kInt64), final_bin_width, final_n_bins, calc_n_per_bin);
     }
     
     auto bin_indices = std::get<0>(result);

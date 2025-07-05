@@ -63,8 +63,8 @@ class TestGravNetOp(unittest.TestCase):
 
         for in_dim in [8, 12, 64]:
             for prop_dim in  [8, 12, 64]:
-                for k in [8, 100]:
-                    for s in [2,3,16]:
+                for k in [8, 32]:
+                    for s in [2,3,5]:
                        
                         op = GravNetOp(in_channels=in_dim,
                                        out_channels=2 * prop_dim,

@@ -5,14 +5,14 @@
 #define CHECK_CPU(x) TORCH_CHECK(x.device().is_cpu(), #x " must be a CPU tensor")
 
 void index_replacer_cpu_kernel(
-    const int* to_be_replaced,
-    const int* replacements,
-    int* replaced,
-    const int n_to_be_replaced,
-    const int n_replacements
+    const int64_t* to_be_replaced,
+    const int64_t* replacements,
+    int64_t* replaced,
+    const int64_t n_to_be_replaced,
+    const int64_t n_replacements
 ) {
     for(int i=0;i<n_to_be_replaced;i++){
-        const int ridx = to_be_replaced[i];
+        const int64_t ridx = to_be_replaced[i];
         if(ridx<0){
             replaced[i] = ridx;
             continue;
@@ -38,9 +38,9 @@ torch::Tensor index_replacer_cpu_fn(
     auto n_replacements = replacements.size(0);
 
     index_replacer_cpu_kernel(
-        to_be_replaced.data_ptr<int>(),
-        replacements.data_ptr<int>(),
-        replaced.data_ptr<int>(),
+        to_be_replaced.data_ptr<int64_t>(),
+        replacements.data_ptr<int64_t>(),
+        replaced.data_ptr<int64_t>(),
         n_to_be_replaced,
         n_replacements
     );

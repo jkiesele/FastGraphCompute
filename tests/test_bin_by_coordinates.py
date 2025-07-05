@@ -6,6 +6,7 @@ import fastgraphcompute.extensions
 from fastgraphcompute import bin_by_coordinates
 from typing import Tuple
 
+
 class BinByCoordinatesModule(torch.nn.Module):
     def __init__(self, cuda=False):
         super().__init__()
@@ -27,7 +28,7 @@ class TestBinByCoordinates(unittest.TestCase):
         # Example: 0.5 units per bin
         self.bin_width = torch.tensor([0.5], dtype=torch.float32)
         self.nbins = torch.tensor(
-            [10, 10], dtype=torch.int32)  # Example: 10x10 grid
+            [10, 10], dtype=torch.int64)  # Example: 10x10 grid
         self.coordinates = torch.tensor([
             [0.1, 0.1],
             [2.5, 2.5],
@@ -39,16 +40,16 @@ class TestBinByCoordinates(unittest.TestCase):
             [0, 0, 0],
             [0, 4, 4],
             [0, 9, 9]
-        ], dtype=torch.int32)
+        ], dtype=torch.int64)
         # No actual split in this case, just one segment
-        self.row_splits = torch.tensor([0, 3], dtype=torch.int32)
+        self.row_splits = torch.tensor([0, 3], dtype=torch.int64)
 
     def do_simple_binning(self, cuda=False):
         coord = self.coordinates.to('cuda') if cuda else self.coordinates
         rs = self.row_splits.to('cuda') if cuda else self.row_splits
         bin_width = self.bin_width.to('cuda') if cuda else self.bin_width
         nbins = self.nbins.to('cuda') if cuda else self.nbins
-        
+
         output_assigned_bin, output_flat_assigned_bin, _, _, output_n_per_bin = bin_by_coordinates(
             coord, rs, bin_width, nbins, True)
 
@@ -58,8 +59,8 @@ class TestBinByCoordinates(unittest.TestCase):
             output_n_per_bin = output_n_per_bin.to('cpu')
 
         expected_flat_assigned_bin = torch.zeros(
-            len(self.expected_assigned_bin), dtype=torch.int32)
-        expected_n_per_bin = torch.zeros((100,), dtype=torch.int32)
+            len(self.expected_assigned_bin), dtype=torch.int64)
+        expected_n_per_bin = torch.zeros((100,), dtype=torch.int64)
 
         for i in range(len(self.expected_assigned_bin)):
             f = self.expected_assigned_bin[i, 1] * \
@@ -135,11 +136,11 @@ class TestBinByCoordinates(unittest.TestCase):
             [0, 0, 0],
             [0, 9, 9],
             [0, 3, 3],
-        ], dtype=torch.int32)
+        ], dtype=torch.int64)
 
         expected_flat_assigned_bin = torch.zeros(
-            len(expected_assigned_bin), dtype=torch.int32)
-        expected_n_per_bin = torch.zeros((100,), dtype=torch.int32)
+            len(expected_assigned_bin), dtype=torch.int64)
+        expected_n_per_bin = torch.zeros((100,), dtype=torch.int64)
 
         for i in range(len(expected_assigned_bin)):
             f = expected_assigned_bin[i, 1] * 10 + expected_assigned_bin[i, 2]
@@ -179,8 +180,8 @@ class TestBinByCoordinates(unittest.TestCase):
         # Example: 0.5 units per bin
         bin_width = torch.tensor([0.5], dtype=torch.float32)
         # Example: 10x10 grid
-        nbins = torch.tensor([10]*ndims, dtype=torch.int32)
-        row_splits = torch.tensor([0, 300, 700, 1000], dtype=torch.int32)
+        nbins = torch.tensor([10]*ndims, dtype=torch.int64)
+        row_splits = torch.tensor([0, 300, 700, 1000], dtype=torch.int64)
 
         coord = coordinates.to('cuda') if cuda else coordinates
         rs = row_splits.to('cuda') if cuda else row_splits
@@ -194,7 +195,7 @@ class TestBinByCoordinates(unittest.TestCase):
         # sanity check. e.g. the entry in the first dimension of output_assigned_bin should correspond to the
         # row split index that entry is in
         rs_index = self.calc_batch_index_from_rs(row_splits)
-        rs_index = rs_index.to(torch.int32)
+        rs_index = rs_index.to(torch.int64)
         rs_index = rs_index.to(coord.device)
         self.assertTrue(torch.all(
             output_assigned_bin[:, 0] == rs_index), f"Expected: {rs_index}, Got: {output_assigned_bin[:, 0]}")
@@ -231,11 +232,12 @@ class TestBinByCoordinates(unittest.TestCase):
     def do_test_with_wrapper_on_data(self, device='cpu'):
 
         # run the whole wrapper here
-        data = np.load(osp.join(osp.dirname(__file__), 'test_bbc_data.npy'), allow_pickle=True)
+        data = np.load(osp.join(osp.dirname(__file__),
+                       'test_bbc_data.npy'), allow_pickle=True)
         coordinates = torch.tensor(data, device=device)
         # one row split
         row_splits = torch.tensor(
-            [0, coordinates.size(0)], dtype=torch.int32, device=device)
+            [0, coordinates.size(0)], dtype=torch.int64, device=device)
         # use dynamic bin width
 
         bin_indices, flat_bin_indices, n_bins, bin_width, n_per_bin = bin_by_coordinates(

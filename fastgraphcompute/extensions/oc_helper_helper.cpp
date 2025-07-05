@@ -41,7 +41,7 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> max_same_valued_entries_
         row_splits = row_splits.to(torch::kCPU);
     }
     // check if row splits are in32
-    TORCH_CHECK(row_splits.dtype() == torch::kInt32, "row_splits must be of type int32");
+    TORCH_CHECK(row_splits.dtype() == torch::kInt64, "row_splits must be of type int64");
 
     int64_t n_row_splits = row_splits.size(0) - 1;
 
@@ -51,7 +51,7 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> max_same_valued_entries_
     torch::Tensor objects_per_split = torch::zeros({n_row_splits}, options);
 
     // Accessor for row_splits (CPU tensor)
-    auto row_splits_accessor = row_splits.accessor<int32_t, 1>();
+    auto row_splits_accessor = row_splits.accessor<int64_t, 1>();
 
     for (int64_t rs_idx = 0; rs_idx < n_row_splits; ++rs_idx) {
         int64_t start_vertex = row_splits_accessor[rs_idx];

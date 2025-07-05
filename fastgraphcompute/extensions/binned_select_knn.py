@@ -79,7 +79,7 @@ def binned_select_knn(K: int,
     # Ensure row_splits is a tensor
     if not isinstance(row_splits, torch.Tensor):
         row_splits = torch.tensor(
-            row_splits, dtype=torch.int32, device=coords.device)
+            row_splits, dtype=torch.int64, device=coords.device)
 
     # Ensure coordinates are float32 for CUDA kernel compatibility
     if coords.dtype != torch.float32:
@@ -87,7 +87,7 @@ def binned_select_knn(K: int,
 
     # Convert n_bins to tensor if it's an integer
     if n_bins is not None and not isinstance(n_bins, torch.Tensor):
-        n_bins = torch.tensor(n_bins, dtype=torch.int32, device=coords.device)
+        n_bins = torch.tensor(n_bins, dtype=torch.int64, device=coords.device)
 
     # For autograd tensors, use clone().contiguous() to ensure clean contiguous tensors
     if coords.requires_grad:

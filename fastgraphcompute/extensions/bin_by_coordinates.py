@@ -76,7 +76,7 @@ def bin_by_coordinates(coordinates: torch.Tensor, row_splits: torch.Tensor, bin_
         # Convert n_bins to tensor if it's not already
         if not torch.is_tensor(n_bins):
             n_bins = torch.tensor(
-                n_bins, dtype=torch.int32, device=coords.device)
+                n_bins, dtype=torch.int64, device=coords.device)
 
         # Make sure it has the coordinate dimension
         if n_bins.dim() == 0:
@@ -89,7 +89,7 @@ def bin_by_coordinates(coordinates: torch.Tensor, row_splits: torch.Tensor, bin_
     else:
         # Calculate n_bins from bin_width
         if n_bins is None:
-            n_bins = (dmax_coords / bin_width).to(dtype=torch.int32) + 1
+            n_bins = (dmax_coords / bin_width).to(dtype=torch.int64) + 1
 
     # Ensure that the bin dimensions are valid
     if torch.jit.is_scripting():
@@ -105,7 +105,7 @@ def bin_by_coordinates(coordinates: torch.Tensor, row_splits: torch.Tensor, bin_
     # unified library call to bin_by_coordinates
     bin_indices, flat_bin_indices, n_bins_out, bin_width_out, n_per_bin = torch.ops.bin_by_coordinates.bin_by_coordinates(
         coords, row_splits.to(
-            dtype=torch.int32), bin_width, n_bins, calc_n_per_bin, pre_normalized
+            dtype=torch.int64), bin_width, n_bins, calc_n_per_bin, pre_normalized
     )
 
     return bin_indices.to(original_device), flat_bin_indices.to(original_device), n_bins_out.to(original_device), bin_width_out.to(original_device), n_per_bin.to(original_device)

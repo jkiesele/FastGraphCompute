@@ -32,6 +32,11 @@ static void select_knn_grad_selfloop_kernel(
                     continue;
                 }
                 const float gik = d_grad_dist[I2D(i_v,i_i_n,n_neigh)];
+                // Additional bounds check for coordinate access
+                if (I2D(k,nu_c,n_coords) >= n_vert * n_coords) {
+                    printf("select_knn_grad_kernel: coordinate index out of bounds\n");
+                    continue;
+                }
                 const float xknu = d_coord[I2D(k,nu_c,n_coords)];
 
                 self_contrib -= 2. * gik * (xknu - xinu);
@@ -72,10 +77,16 @@ static void select_knn_grad_neighloop_kernel(
                 }
 
                 const float gim = d_grad_dist[I2D(i_v, i_i_n, n_neigh)];
-                const float xmnu = d_coord[I2D(m, nu_c, n_coords)];
+                // Additional bounds check for coordinate access
+                T coord_idx = I2D(m, nu_c, n_coords);
+                if (coord_idx >= n_vert * n_coords) {
+                    printf("select_knn_grad_kernel: coordinate index out of bounds\n");
+                    continue;
+                }
+                const float xmnu = d_coord[coord_idx];
 
                 float add = 2. * gim * (xmnu - xinu);
-                d_grad_coord[I2D(m, nu_c, n_coords)] += add;
+                d_grad_coord[coord_idx] += add;
             } // i_i_n
         } // nu_c
     } // i_v
@@ -101,31 +112,8 @@ torch::Tensor binned_select_knn_grad_cpu_fn(
     distances = distances.contiguous();
     coordinates = coordinates.contiguous();
 
-    if (indices.scalar_type() == torch::kInt32) {
-        select_knn_grad_selfloop_kernel<int32_t>(
-            grad_distances.data_ptr<float>(),
-            indices.data_ptr<int32_t>(),
-            distances.data_ptr<float>(),
-            coordinates.data_ptr<float>(),
-            grad_coords.data_ptr<float>(),
-            n_vert,
-            K,
-            n_coords
-        );
-    
-        select_knn_grad_neighloop_kernel<int32_t>(
-            grad_distances.data_ptr<float>(),
-            indices.data_ptr<int32_t>(),
-            distances.data_ptr<float>(),
-            coordinates.data_ptr<float>(),
-            grad_coords.data_ptr<float>(),
-            n_vert,
-            K,
-            n_coords
-        );
-    }
-    else if (indices.scalar_type() == torch::kInt64) {
-            select_knn_grad_selfloop_kernel<int64_t>(
+    if (indices.scalar_type() == torch::kInt64) {
+        select_knn_grad_selfloop_kernel<int64_t>(
             grad_distances.data_ptr<float>(),
             indices.data_ptr<int64_t>(),
             distances.data_ptr<float>(),
@@ -139,6 +127,29 @@ torch::Tensor binned_select_knn_grad_cpu_fn(
         select_knn_grad_neighloop_kernel<int64_t>(
             grad_distances.data_ptr<float>(),
             indices.data_ptr<int64_t>(),
+            distances.data_ptr<float>(),
+            coordinates.data_ptr<float>(),
+            grad_coords.data_ptr<float>(),
+            n_vert,
+            K,
+            n_coords
+        );
+    }
+    else if (indices.scalar_type() == torch::kInt32) {
+            select_knn_grad_selfloop_kernel<int32_t>(
+            grad_distances.data_ptr<float>(),
+            indices.data_ptr<int32_t>(),
+            distances.data_ptr<float>(),
+            coordinates.data_ptr<float>(),
+            grad_coords.data_ptr<float>(),
+            n_vert,
+            K,
+            n_coords
+        );
+    
+        select_knn_grad_neighloop_kernel<int32_t>(
+            grad_distances.data_ptr<float>(),
+            indices.data_ptr<int32_t>(),
             distances.data_ptr<float>(),
             coordinates.data_ptr<float>(),
             grad_coords.data_ptr<float>(),

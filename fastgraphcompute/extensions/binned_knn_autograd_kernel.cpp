@@ -66,17 +66,17 @@ auto make_contiguous_on_device(torch::Device device, Tensors&&... tensors) {
 // Helper function to calculate optimal number of bins
 torch::Tensor calculate_optimal_bins(const torch::Tensor& row_splits, int64_t K, int64_t max_bin_dims, 
                                      const c10::optional<torch::Tensor>& n_bins_user, 
-                                     const torch::TensorOptions& int32_options) {
+                                     const torch::TensorOptions& int64_options) {
     if (n_bins_user.has_value()) {
         return n_bins_user.value();
     }
     
     auto elems_per_rs = row_splits.size(0) > 0 ? 
-        (torch::max(row_splits).to(torch::kFloat32) / static_cast<float>(row_splits.size(0)) + 1).to(torch::kInt32) :
-        torch::tensor(static_cast<int64_t>(1), int32_options);
+        (torch::max(row_splits).to(torch::kFloat32) / static_cast<float>(row_splits.size(0)) + 1).to(torch::kInt64) :
+        torch::tensor(static_cast<int64_t>(1), int64_options);
     
     auto n_bins = torch::pow(elems_per_rs.to(torch::kFloat32) / (static_cast<float>(K) / 32.0f), 
-                            1.0f / static_cast<float>(max_bin_dims)).to(torch::kInt32);
+                            1.0f / static_cast<float>(max_bin_dims)).to(torch::kInt64);
     
     return torch::clamp(n_bins, static_cast<int64_t>(5), static_cast<int64_t>(30));
 }
@@ -96,12 +96,11 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
         TORCH_CHECK(max_bin_dims_user > 0, "max_bin_dims must be greater than 0.");
 
         auto original_device = coords.device();
-        auto int32_options = torch::TensorOptions().dtype(torch::kInt32).device(original_device);
         auto int64_options = torch::TensorOptions().dtype(torch::kInt64).device(original_device);
         int64_t max_bin_dims = std::min(max_bin_dims_user, coords.size(1));
 
         // Calculate bins and prepare coordinates for binning
-        auto n_bins = calculate_optimal_bins(row_splits, K, max_bin_dims, n_bins_user, int32_options);
+        auto n_bins = calculate_optimal_bins(row_splits, K, max_bin_dims, n_bins_user, int64_options);
         auto bin_coords = coords.size(1) > max_bin_dims ? 
             coords.slice(static_cast<int64_t>(1), static_cast<int64_t>(0), max_bin_dims) : coords;
 
@@ -149,10 +148,11 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
         bool use_direction = direction.has_value() && direction.value().numel() > 0;
 
         // Ensure kernel inputs are contiguous and on correct device
+        // Convert int64 tensors back to int64 for kernel compatibility
         auto kernel_device = scoords.device();
         auto [k_scoords, k_sbinning, k_sdbinning, k_bin_boundaries, k_n_bins, k_bin_width, k_direction] = 
-            make_contiguous_on_device(kernel_device, scoords, sbinning, sdbinning, 
-                                     bin_boundaries, nb, bin_width, direction_input);
+            make_contiguous_on_device(kernel_device, scoords, sbinning.to(torch::kInt64), sdbinning.to(torch::kInt64), 
+                                     bin_boundaries.to(torch::kInt64), nb.to(torch::kInt64), bin_width, direction_input);
 
         // Call KNN kernel directly based on device type
         std::tuple<torch::Tensor, torch::Tensor> knn_result;
@@ -175,9 +175,9 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
         torch::Tensor idx_unsorted;
         if (idx_sorted.numel() > 0) {
             if (idx_sorted.device().is_cuda()) {
-                idx_unsorted = index_replacer_cuda_fn(idx_sorted, sorting_indices);
+                idx_unsorted = index_replacer_cuda_fn(idx_sorted, sorting_indices.to(torch::kInt64));
             } else {
-                idx_unsorted = index_replacer_cpu_fn(idx_sorted, sorting_indices);
+                idx_unsorted = index_replacer_cpu_fn(idx_sorted, sorting_indices.to(torch::kInt64));
             }
         } else {
             idx_unsorted = torch::empty_like(idx_sorted);

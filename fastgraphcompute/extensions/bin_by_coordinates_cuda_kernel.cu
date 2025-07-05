@@ -22,38 +22,38 @@
 __global__
 void calc(
         const float * d_coords,
-        const int * d_rs,
+        const int64_t * d_rs,
         const float * d_binswidth, //singleton
-        const int * n_bins,
+        const int64_t * n_bins,
 
-        int * d_assigned_bin,
-        int * d_flat_assigned_bin,
-        int * d_n_per_bin,
+        int64_t * d_assigned_bin,
+        int64_t * d_flat_assigned_bin,
+        int64_t * d_n_per_bin,
 
-        const int n_vert,
-        const int n_coords,
-        const int n_rs,
-        const int n_total_bins,
+        const int64_t n_vert,
+        const int64_t n_coords,
+        const int64_t n_rs,
+        const int64_t n_total_bins,
         const bool calc_n_per_bin
 ){
-    int iv=blockIdx.x * blockDim.x + threadIdx.x;
+    int64_t iv=blockIdx.x * blockDim.x + threadIdx.x;
     if(iv>=n_vert)
         return;
 
     ///same for cu
 
-    int mul = 1;
-    int idx = 0;
+    int64_t mul = 1;
+    int64_t idx = 0;
     const float epsilon = 1e-3f;
 
-    for (int ic = n_coords-1; ic != -1; ic--) {
+    for (int64_t ic = n_coords-1; ic != -1; ic--) {
         
         float coord = d_coords[I2D(iv, ic, n_coords)]; 
         float scaled = coord / d_binswidth[0]; 
-        int cidx = (int)floorf(scaled + epsilon);  
+        int64_t cidx = (int64_t)floorf(scaled + epsilon);  
 
         if(cidx < 0) {
-            printf("Warning: Vertex %d, coordinate %d (%f) yields negative bin index (%d). Clamping to 0.\n", iv, ic, coord, cidx);
+            printf("Warning: Vertex %lld, coordinate %lld (%f) yields negative bin index (%lld). Clamping to 0.\n", iv, ic, coord, cidx);
             cidx = 0;
         }
         else if(cidx >= n_bins[ic]) {
@@ -64,15 +64,15 @@ void calc(
                 // Silent clamp for coordinate exactly at the upper boundary
                 cidx = n_bins[ic] - 1;
             } else {
-                printf("Warning: Vertex %d, coordinate %d (%f) yields bin index %d out of range [0, %d). Clamping to %d.\n", 
+                printf("Warning: Vertex %lld, coordinate %lld (%f) yields bin index %lld out of range [0, %lld). Clamping to %lld.\n", 
                        iv, ic, coord, cidx, n_bins[ic], n_bins[ic]-1);
                 cidx = n_bins[ic] - 1;
             }
         }
         d_assigned_bin[I2D(iv,ic+1,n_coords+1)]=cidx;
 
-        if(n_bins[ic] > 0 && mul > INT_MAX / n_bins[ic]) {
-            printf("ERROR: Integer overflow detected in thread %d at coordinate %d during multiplication. Aborting computation.\n", iv, ic);
+        if(n_bins[ic] > 0 && mul > LLONG_MAX / n_bins[ic]) {
+            printf("ERROR: Integer overflow detected in thread %lld at coordinate %lld during multiplication. Aborting computation.\n", iv, ic);
             return;
         }
         idx += cidx * mul;
@@ -81,16 +81,16 @@ void calc(
     }
 
     //get row split index last
-    int rsidx=0;
-    for(int irs=1 ; irs < n_rs ; irs++){
+    int64_t rsidx=0;
+    for(int64_t irs=1 ; irs < n_rs ; irs++){
         if(d_rs[irs] > iv){
             break;
         }
         rsidx++;
     }
     
-    if(mul > INT_MAX / (rsidx + 1)) {
-        printf("ERROR: Integer overflow detected in thread %d when adding row-split index. Aborting computation.\n", iv);
+    if(mul > LLONG_MAX / (rsidx + 1)) {
+        printf("ERROR: Integer overflow detected in thread %lld when adding row-split index. Aborting computation.\n", iv);
         return;
     }
     idx += rsidx * mul;
@@ -106,7 +106,7 @@ void calc(
 
     if(calc_n_per_bin){
         //atomic in parallel!
-        atomicAdd(&d_n_per_bin[idx] , 1);
+        atomicAdd((unsigned long long*)&d_n_per_bin[idx], 1ULL);
 
     }
     //end same for cu
@@ -137,23 +137,23 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> bin_by_coordinates_cuda_
     // Check if n_coords is equal to nbins.size(0)
     TORCH_CHECK(n_coords == nbins.size(0), "bin_by_coordinates_cuda: coordinates.size(1) must be equal to nbins.size(0)");
 
-    const auto n_total_bins = nbins.to(torch::kCPU).prod().item<int>() * (n_rs - 1);
+    const auto n_total_bins = nbins.to(torch::kCPU).prod().item<int64_t>() * (n_rs - 1);
     
-    auto output_n_per_bin_tensor = torch::zeros({ n_total_bins }, torch::TensorOptions().dtype(torch::kInt32).device(coordinates.device()));
-    auto output_assigned_bin_tensor = torch::zeros({ n_vert, n_coords + 1 }, torch::TensorOptions().dtype(torch::kInt32).device(coordinates.device()));
-    auto output_flat_assigned_bin_tensor = torch::zeros({ n_vert }, torch::TensorOptions().dtype(torch::kInt32).device(coordinates.device()));
+    auto output_n_per_bin_tensor = torch::zeros({ n_total_bins }, torch::TensorOptions().dtype(torch::kInt64).device(coordinates.device()));
+    auto output_assigned_bin_tensor = torch::zeros({ n_vert, n_coords + 1 }, torch::TensorOptions().dtype(torch::kInt64).device(coordinates.device()));
+    auto output_flat_assigned_bin_tensor = torch::zeros({ n_vert }, torch::TensorOptions().dtype(torch::kInt64).device(coordinates.device()));
 
     grid_and_block gb(n_vert,512);
 
     calc<<<gb.grid(),gb.block()>>>(
         coordinates.data_ptr<float>(),
-        row_splits.data_ptr<int32_t>(),
+        row_splits.data_ptr<int64_t>(),
         bin_width.data_ptr<float>(),
-        nbins.data_ptr<int32_t>(),
+        nbins.data_ptr<int64_t>(),
 
-        output_assigned_bin_tensor.data_ptr<int32_t>(),
-        output_flat_assigned_bin_tensor.data_ptr<int32_t>(),
-        output_n_per_bin_tensor.data_ptr<int32_t>(),
+        output_assigned_bin_tensor.data_ptr<int64_t>(),
+        output_flat_assigned_bin_tensor.data_ptr<int64_t>(),
+        output_n_per_bin_tensor.data_ptr<int64_t>(),
 
         n_vert,
         n_coords,
