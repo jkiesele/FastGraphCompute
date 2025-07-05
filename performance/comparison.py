@@ -116,7 +116,11 @@ class KNNImplementations:
     
     @staticmethod
     def fgc_knn(coords: np.ndarray, k: int, use_gpu: bool = True) -> Tuple[np.ndarray, np.ndarray]:
-        """FastGraphCompute KNN implementation."""
+        """FastGraphCompute KNN implementation.
+        
+        Note: FGC binned_select_knn supports max_bin_dims of 2, 3, 4, or 5 only.
+        The binning dimensions are automatically limited to the coordinate dimensions.
+        """
         if not TORCH_AVAILABLE:
             raise ImportError("PyTorch not available")
         
@@ -130,11 +134,16 @@ class KNNImplementations:
         if torch.cuda.is_available() and use_gpu:
             torch.cuda.synchronize()
         
+        # FGC supports max_bin_dims of 2, 3, 4, or 5 only
+        # Limit to min of coordinate dimensions and 5
+        max_bin_dims = min(coords_tensor.shape[1], 5)
+        max_bin_dims = max(max_bin_dims, 2)  # Ensure at least 2
+        
         indices, distances = binned_select_knn(
             K=k,
             coords=coords_tensor,
             row_splits=row_splits,
-            max_bin_dims=3
+            max_bin_dims=max_bin_dims
         )
         
         if torch.cuda.is_available() and use_gpu:
@@ -487,10 +496,11 @@ def main():
     """Main function to run the benchmark."""
     
     # Start with small test configuration
+    # Note: FGC requires at least 2 dimensions for binning
     small_config = TestConfig(
         k_values=[8, 16, 32],
         n_points_list=[100, 500, 1000],
-        dimensions_list=[2, 4, 8],
+        dimensions_list=[2, 3, 4, 8],  # Start from 2D since FGC requires min 2 dims
         n_runs=3,
         use_gpu=torch.cuda.is_available() if TORCH_AVAILABLE else False
     )
@@ -511,7 +521,7 @@ def main():
         large_config = TestConfig(
             k_values=[16, 32, 64, 128],
             n_points_list=[1000, 5000, 10000, 50000],
-            dimensions_list=[3, 8, 16],
+            dimensions_list=[2, 3, 5, 8, 16],  # Include 2D, 3D, 5D (max binning), and higher
             n_runs=3,
             use_gpu=torch.cuda.is_available() if TORCH_AVAILABLE else False
         )

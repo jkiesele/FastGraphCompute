@@ -72,9 +72,11 @@ def binned_select_knn(K: int,
         max_bin_dims = int(max_bin_dims)
 
     # Automatically adjust max_bin_dims based on coordinate dimensions
+    # FGC supports max_bin_dims of 2, 3, 4, or 5 only
+    # Limit to min of coordinate dimensions and 5
     coord_dims = coords.shape[1]
-    if max_bin_dims < coord_dims:
-        max_bin_dims = coord_dims
+    max_bin_dims = min(max_bin_dims, coord_dims, 5)
+    max_bin_dims = max(max_bin_dims, 2)  # Ensure at least 2
 
     # Ensure row_splits is a tensor
     if not isinstance(row_splits, torch.Tensor):
