@@ -102,7 +102,7 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
         // Calculate bins and prepare coordinates for binning
         auto n_bins = calculate_optimal_bins(row_splits, K, max_bin_dims, n_bins_user, int64_options);
         auto bin_coords = coords.size(1) > max_bin_dims ? 
-            coords.slice(static_cast<int64_t>(1), static_cast<int64_t>(0), max_bin_dims) : coords;
+            coords.slice(static_cast<int64_t>(1), static_cast<int64_t>(0), max_bin_dims).contiguous() : coords;
 
         // Perform binning - call function directly
         auto binning_result = bin_by_coordinates(
