@@ -4,7 +4,7 @@
 #include <algorithm>
 
 // Forward declaration for bin_by_coordinates function
-std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor> 
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>
 bin_by_coordinates(
     const torch::Tensor& coordinates,
     const torch::Tensor& row_splits,
@@ -64,20 +64,20 @@ auto make_contiguous_on_device(torch::Device device, Tensors&&... tensors) {
 }
 
 // Helper function to calculate optimal number of bins
-torch::Tensor calculate_optimal_bins(const torch::Tensor& row_splits, int64_t K, int64_t max_bin_dims, 
-                                     const c10::optional<torch::Tensor>& n_bins_user, 
+torch::Tensor calculate_optimal_bins(const torch::Tensor& row_splits, int64_t K, int64_t max_bin_dims,
+                                     const c10::optional<torch::Tensor>& n_bins_user,
                                      const torch::TensorOptions& int64_options) {
     if (n_bins_user.has_value()) {
         return n_bins_user.value();
     }
-    
-    auto elems_per_rs = row_splits.size(0) > 0 ? 
+
+    auto elems_per_rs = row_splits.size(0) > 0 ?
         (torch::max(row_splits).to(torch::kFloat32) / static_cast<float>(row_splits.size(0)) + 1).to(torch::kInt64) :
         torch::tensor(static_cast<int64_t>(1), int64_options);
-    
-    auto n_bins = torch::pow(elems_per_rs.to(torch::kFloat32) / (static_cast<float>(K) / 32.0f), 
+
+    auto n_bins = torch::pow(elems_per_rs.to(torch::kFloat32) / (static_cast<float>(K) / 32.0f),
                             1.0f / static_cast<float>(max_bin_dims)).to(torch::kInt64);
-    
+
     return torch::clamp(n_bins, static_cast<int64_t>(5), static_cast<int64_t>(30));
 }
 
@@ -101,13 +101,13 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
 
         // Calculate bins and prepare coordinates for binning
         auto n_bins = calculate_optimal_bins(row_splits, K, max_bin_dims, n_bins_user, int64_options);
-        auto bin_coords = coords.size(1) > max_bin_dims ? 
+        auto bin_coords = coords.size(1) > max_bin_dims ?
             coords.slice(static_cast<int64_t>(1), static_cast<int64_t>(0), max_bin_dims).contiguous() : coords;
 
         // Perform binning - call function directly
         auto binning_result = bin_by_coordinates(
                 bin_coords, row_splits, torch::Tensor(), n_bins, true, false);
-        
+
         auto dbinning = std::get<0>(binning_result);
         auto binning = std::get<1>(binning_result);
         auto nb = std::get<2>(binning_result);
@@ -115,7 +115,7 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
         auto nper = std::get<4>(binning_result);
 
         // Sort by bin assignment
-        auto sorting_indices = binning.numel() > 0 ? 
+        auto sorting_indices = binning.numel() > 0 ?
             torch::argsort(binning, static_cast<int64_t>(0)).to(torch::kInt64) :
             torch::empty({0}, binning.options().dtype(torch::kInt64));
 
@@ -123,10 +123,12 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
         auto scoords = coords.index_select(static_cast<int64_t>(0), sorting_indices);
         auto sbinning = binning.index_select(static_cast<int64_t>(0), sorting_indices);
         auto sdbinning = dbinning.index_select(static_cast<int64_t>(0), sorting_indices);
-        
+
         c10::optional<torch::Tensor> sdirection;
-        if (direction.has_value()) {
+        if (direction.has_value() && direction.value().numel() > 0) {
             sdirection = direction.value().index_select(static_cast<int64_t>(0), sorting_indices);
+        } else {
+            sdirection = torch::empty({0}, sdbinning.options().device(scoords.device()));
         }
 
         // Create bin boundaries - fix torch::cat usage
@@ -142,17 +144,14 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
         TORCH_CHECK(max_bin_boundaries == max_row_splits,
                     "Bin boundaries do not match row splits.");
 
-        // Prepare inputs for KNN kernel
-        auto direction_input = (direction.has_value() && direction.value().numel() > 0) ? 
-            direction.value() : torch::empty({0}, sdbinning.options().device(scoords.device()));
-        bool use_direction = direction.has_value() && direction.value().numel() > 0;
+        bool use_direction = sdirection.has_value() && sdirection.value().numel() > 0;
 
         // Ensure kernel inputs are contiguous and on correct device
         // Convert int64 tensors back to int64 for kernel compatibility
         auto kernel_device = scoords.device();
-        auto [k_scoords, k_sbinning, k_sdbinning, k_bin_boundaries, k_n_bins, k_bin_width, k_direction] = 
-            make_contiguous_on_device(kernel_device, scoords, sbinning.to(torch::kInt64), sdbinning.to(torch::kInt64), 
-                                     bin_boundaries.to(torch::kInt64), nb.to(torch::kInt64), bin_width, direction_input);
+        auto [k_scoords, k_sbinning, k_sdbinning, k_bin_boundaries, k_n_bins, k_bin_width, k_direction] =
+            make_contiguous_on_device(kernel_device, scoords, sbinning.to(torch::kInt64), sdbinning.to(torch::kInt64),
+                                     bin_boundaries.to(torch::kInt64), nb.to(torch::kInt64), bin_width, sdirection.value());
 
         // Call KNN kernel directly based on device type
         std::tuple<torch::Tensor, torch::Tensor> knn_result;
@@ -167,7 +166,7 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
                 k_n_bins, k_bin_width, k_direction,
                 torch_compatible_indices, use_direction, K);
         }
-        
+
         auto idx_sorted = std::get<0>(knn_result);
         auto dist_sorted = std::get<1>(knn_result);
 
@@ -194,14 +193,14 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
         if (idx_unsorted.numel() > 0) {
             idx_final.scatter_(static_cast<int64_t>(0), sorting_indices_long.unsqueeze(-1).expand_as(idx_unsorted), idx_unsorted);
         }
-        
+
         // Fix save_for_backward - use proper variable_list
         torch::autograd::variable_list saved_tensors;
         saved_tensors.push_back(idx_final);
         saved_tensors.push_back(dist_final);
         saved_tensors.push_back(coords);
         ctx->save_for_backward(saved_tensors);
-        
+
         // Fix return statement - create proper variable_list
         torch::autograd::variable_list outputs;
         outputs.push_back(idx_final.to(original_device));
@@ -212,7 +211,7 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
     static torch::autograd::variable_list backward(
         torch::autograd::AutogradContext *ctx,
         torch::autograd::variable_list grad_outputs) {
-        
+
         auto saved_tensors = ctx->get_saved_variables();
         auto idx = saved_tensors[0];
         auto dist = saved_tensors[1];
@@ -224,7 +223,7 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
         if (ctx->needs_input_grad(0)) {
             if (grad_dist.defined()) {
                 auto kernel_device = grad_dist.device();
-                auto [k_grad_dist, k_idx, k_dist, k_coords] = 
+                auto [k_grad_dist, k_idx, k_dist, k_coords] =
                     make_contiguous_on_device(kernel_device, grad_dist, idx, dist, original_coords);
 
                 // Call gradient function directly based on device type
@@ -239,7 +238,7 @@ struct BinnedKNNAutograd : public torch::autograd::Function<BinnedKNNAutograd> {
                 grad_coordinates = torch::zeros_like(original_coords, original_coords.options().requires_grad(false));
             }
         }
-        
+
         // Return proper variable_list
         torch::autograd::variable_list grad_inputs;
         grad_inputs.push_back(grad_coordinates);
@@ -262,17 +261,17 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cpp_op(
     c10::optional<torch::Tensor> n_bins_user,
     int64_t max_bin_dims_user,
     bool torch_compatible_indices) {
-    
-    auto result = BinnedKNNAutograd::apply(coords, row_splits, K, direction, 
+
+    auto result = BinnedKNNAutograd::apply(coords, row_splits, K, direction,
                                           n_bins_user, max_bin_dims_user, torch_compatible_indices);
     return std::make_tuple(result[0], result[1]);
 }
 
 // Operator Registration
 TORCH_LIBRARY(fastgraphcompute_custom_ops, m) {
-    m.def("binned_select_knn(Tensor coords, Tensor row_splits, int K, Tensor? direction, Tensor? n_bins, int max_bin_dims, bool torch_compatible_indices) -> (Tensor, Tensor)");
+    m.def("binned_select_knn_autograd(Tensor coords, Tensor row_splits, int K, Tensor? direction, Tensor? n_bins, int max_bin_dims, bool torch_compatible_indices) -> (Tensor, Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(fastgraphcompute_custom_ops, Autograd, m) {
-    m.impl("binned_select_knn", TORCH_FN(binned_select_knn_cpp_op));
+    m.impl("binned_select_knn_autograd", TORCH_FN(binned_select_knn_cpp_op));
 }

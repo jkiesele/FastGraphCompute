@@ -10,30 +10,30 @@ torch.ops.load_library(osp.join(osp.dirname(
     osp.realpath(__file__)), 'binned_knn_ops.so'))
 
 
-@torch.jit.script
-def _binned_select_knn(
-        K: int,
-        coordinates: torch.Tensor,
-        bin_idx: torch.Tensor,
-        dim_bin_idx: torch.Tensor,
-        bin_boundaries: torch.Tensor,
-        n_bins: torch.Tensor,
-        bin_width: torch.Tensor,
-        torch_compatible_indices: bool = False,
-        direction: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+# @torch.jit.script
+# def _binned_select_knn(
+#         K: int,
+#         coordinates: torch.Tensor,
+#         bin_idx: torch.Tensor,
+#         dim_bin_idx: torch.Tensor,
+#         bin_boundaries: torch.Tensor,
+#         n_bins: torch.Tensor,
+#         bin_width: torch.Tensor,
+#         torch_compatible_indices: bool = False,
+#         direction: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
 
-    # check if direction is None, if so create an empty tensor
-    if direction is None:
-        direction_input = torch.empty(
-            0, device=coordinates.device, dtype=dim_bin_idx.dtype)
-    else:
-        direction_input = direction
+#     # check if direction is None, if so create an empty tensor
+#     if direction is None:
+#         direction_input = torch.empty(
+#             0, device=coordinates.device, dtype=dim_bin_idx.dtype)
+#     else:
+#         direction_input = direction
 
-    idx, dist = torch.ops.binned_select_knn.binned_select_knn(
-        coordinates, bin_idx, dim_bin_idx, bin_boundaries, n_bins, bin_width,
-        direction_input, torch_compatible_indices, direction is not None, K)
+#     idx, dist = torch.ops.binned_select_knn.binned_select_knn(
+#         coordinates, bin_idx, dim_bin_idx, bin_boundaries, n_bins, bin_width,
+#         direction_input, torch_compatible_indices, direction is not None, K)
 
-    return idx, dist
+#     return idx, dist
 
 
 def binned_select_knn(K: int,
@@ -114,7 +114,7 @@ def binned_select_knn(K: int,
         n_bins = n_bins.to(dtype=torch.int64, copy=False)
 
     # Use the C++ autograd kernel
-    idx, dist = torch.ops.fastgraphcompute_custom_ops.binned_select_knn(
+    idx, dist = torch.ops.fastgraphcompute_custom_ops.binned_select_knn_autograd(
         coords, row_splits, K, direction, n_bins, max_bin_dims, torch_compatible_indices)
 
     return idx, dist
