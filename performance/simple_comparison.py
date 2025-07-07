@@ -8,6 +8,8 @@ import time
 import numpy as np
 import torch
 
+from fastgraphcompute import binned_select_knn
+
 # Set fixed seed for reproducibility
 SEED = 42
 np.random.seed(SEED)
@@ -16,7 +18,7 @@ torch.manual_seed(SEED)
 # Fixed parameters
 K = 10
 DIMENSIONS = 3
-TEST_SIZES = [100, 500, 1000, 5000]
+TEST_SIZES = [100, 500, 1000, 5000, 50000, 100000]
 
 
 def generate_data(n_points, dimensions, seed_offset=0):
@@ -53,12 +55,10 @@ def time_faiss(data, k):
 def time_fgc(data, k):
     """Time FGC KNN search."""
     try:
-        import fastgraphcompute.extensions.binned_knn_ops
-
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
         # Convert numpy array to PyTorch tensor (following test pattern)
-        coordinates = torch.from_numpy(data).float().to(device).contiguous()
+        coordinates = torch.tensor(data, dtype=torch.float32, device=device).contiguous()
         row_splits = torch.tensor(
             [0, len(data)], dtype=torch.int64, device=device)
 
@@ -68,8 +68,9 @@ def time_fgc(data, k):
 
         start_time = time.time()
         # Use the same function signature as tests
-        indices, distances = torch.ops.fastgraphcompute_custom_ops.binned_select_knn(
-            coordinates, row_splits, k, None, None, 3, False)
+        indices, distances = binned_select_knn(
+                K, coordinates, row_splits, direction=None, n_bins=None)
+
         if device == 'cuda':
             torch.cuda.synchronize()
         end_time = time.time()
