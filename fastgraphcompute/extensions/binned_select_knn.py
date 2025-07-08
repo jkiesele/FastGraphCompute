@@ -10,32 +10,6 @@ torch.ops.load_library(osp.join(osp.dirname(
     osp.realpath(__file__)), 'binned_knn_ops.so'))
 
 
-# @torch.jit.script
-# def _binned_select_knn(
-#         K: int,
-#         coordinates: torch.Tensor,
-#         bin_idx: torch.Tensor,
-#         dim_bin_idx: torch.Tensor,
-#         bin_boundaries: torch.Tensor,
-#         n_bins: torch.Tensor,
-#         bin_width: torch.Tensor,
-#         torch_compatible_indices: bool = False,
-#         direction: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
-
-#     # check if direction is None, if so create an empty tensor
-#     if direction is None:
-#         direction_input = torch.empty(
-#             0, device=coordinates.device, dtype=dim_bin_idx.dtype)
-#     else:
-#         direction_input = direction
-
-#     idx, dist = torch.ops.binned_select_knn.binned_select_knn(
-#         coordinates, bin_idx, dim_bin_idx, bin_boundaries, n_bins, bin_width,
-#         direction_input, torch_compatible_indices, direction is not None, K)
-
-#     return idx, dist
-
-
 def binned_select_knn(K: int,
                       coords: torch.Tensor,
                       row_splits: torch.Tensor,

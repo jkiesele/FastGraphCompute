@@ -16,9 +16,9 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 
 # Fixed parameters
-K = [1, 5]
-DIMENSIONS = [5]
-TEST_SIZES = [50000, 500000, 1000000]
+K = [1, 5, 10, 100]
+DIMENSIONS = [1, 3, 5, 7]
+TEST_SIZES = [100, 500, 1000, 5000, 50000, 1000000]
 
 
 def generate_data(n_points, dimensions, seed_offset=0):

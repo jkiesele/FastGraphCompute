@@ -234,7 +234,7 @@ class TestBinByCoordinates(unittest.TestCase):
         # run the whole wrapper here
         data = np.load(osp.join(osp.dirname(__file__),
                        'test_bbc_data.npy'), allow_pickle=True)
-        coordinates = torch.tensor(data, device=device)
+        coordinates = torch.tensor(data, dtype=torch.float32, device=device)
         # one row split
         row_splits = torch.tensor(
             [0, coordinates.size(0)], dtype=torch.int64, device=device)
