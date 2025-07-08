@@ -169,8 +169,6 @@ class TestBinnedSelectKnn(unittest.TestCase):
     def test_large_binned_select_knn_cuda(self):
         self.do_large_test(device='cuda', strict=False)
 
-    # TODO: these two test too many dimensions. Ask @Jan Kieseler about removing
-    # these or altering the codebase
     def test_large_binned_select_knn_cpu_D8(self):
         self.do_large_test(device='cpu', strict=False, n_dims=8)
 
@@ -178,8 +176,11 @@ class TestBinnedSelectKnn(unittest.TestCase):
     def test_large_binned_select_knn_cuda_D8(self):
         self.do_large_test(device='cuda', strict=False, n_dims=8)
 
-    # gradients
+    # def test_jit_script_compatibility():
+    #
+    #
 
+    # gradients
     def do_test_binned_knn_gradient(self, device, n_dims, K):
         torch.manual_seed(45)
 
@@ -202,7 +203,7 @@ class TestBinnedSelectKnn(unittest.TestCase):
         direction = None  # For this test, we won't use direction constraints
 
         idx_knn, dist_knn = self.binned_select_knn_tester(
-            K, coordinates, row_splits, direction=direction, n_bins=10)
+            K, coordinates, row_splits, direction=direction, n_bins=torch.tensor(10, dtype=torch.int64, device=device))
 
         # create a non-trivial gradient
         grad_knn = torch.autograd.grad(outputs=(
@@ -238,43 +239,85 @@ class TestBinnedSelectKnn(unittest.TestCase):
     def test_binned_knn_gradient_cuda_K10(self):
         self.do_test_binned_knn_gradient(device='cuda', n_dims=4, K=10)
 
-    def test_jit_script_compatibility(self):
-        """Test if BinnedSelectKnnModule is compatible with torch.jit.script (CPU and CUDA)."""
-        import torch
-        import random
-
+    def do_jit_script_compatibility_test(self, device):
+        """Test if BinnedSelectKnnModule is compatible with torch.jit.script."""
         # Prepare representative inputs
-        K = 3
-        N = 10
-        D = 2
-        coordinates = torch.randn(N, D)
-        row_splits = torch.tensor([0, N], dtype=torch.int64)
-        direction = None  # or torch.randn(N, D) if needed
-        n_bins_val = 4
+        K = 8
+        N = 100
+        D = 3
+        coordinates = torch.randn(N, D).to(device)
+        row_splits = torch.tensor([0, 50, N], dtype=torch.int64).to(device)
+        direction = None
+        n_bins = torch.tensor(4, dtype=torch.int64, device=device)
 
-        for cuda in (False, True) if torch.cuda.is_available() else (False,):
-            device = 'cuda' if cuda else 'cpu'
-            coords = coordinates.to(device)
-            rs = row_splits.to(device)
-            dirn = direction.to(device) if direction is not None else None
-            n_bins = torch.tensor(n_bins_val, dtype=torch.int64, device=device)
+        module = BinnedSelectKnnModule().to(device)
+        
+        try:
+            # Test scripting the module
+            scripted_module = torch.jit.script(module)
+            
+            # Test that both modules work and produce consistent outputs
+            with torch.no_grad():
+                original_idx, original_dist = module(K, coordinates, row_splits, direction, n_bins)
+                scripted_idx, scripted_dist = scripted_module(K, coordinates, row_splits, direction, n_bins)
+            
+            # Verify outputs are not None and have correct shape
+            self.assertIsNotNone(original_idx)
+            self.assertIsNotNone(original_dist)
+            self.assertIsNotNone(scripted_idx)
+            self.assertIsNotNone(scripted_dist)
+            self.assertEqual(original_idx.shape, (N, K))
+            self.assertEqual(original_dist.shape, (N, K))
+            self.assertEqual(scripted_idx.shape, (N, K))
+            self.assertEqual(scripted_dist.shape, (N, K))
+            
+            # Verify numerical equivalence
+            self.assertTrue(torch.allclose(original_idx, scripted_idx, atol=1e-6))
+            self.assertTrue(torch.allclose(original_dist, scripted_dist, atol=1e-6))
+            
+            # Test save/load functionality
+            buffer = io.BytesIO()
+            torch.jit.save(scripted_module, buffer)
+            buffer.seek(0)
+            loaded_module = torch.jit.load(buffer)
+            
+            with torch.no_grad():
+                loaded_idx, loaded_dist = loaded_module(K, coordinates, row_splits, direction, n_bins)
+            
+            self.assertIsNotNone(loaded_idx)
+            self.assertIsNotNone(loaded_dist)
+            self.assertEqual(loaded_idx.shape, (N, K))
+            self.assertEqual(loaded_dist.shape, (N, K))
+            self.assertTrue(torch.allclose(original_idx, loaded_idx, atol=1e-6))
+            self.assertTrue(torch.allclose(original_dist, loaded_dist, atol=1e-6))
+            
+            # Test that the binned_select_knn function itself can be scripted independently
+            from fastgraphcompute.extensions.binned_select_knn import binned_select_knn
+            
+            # Create a simple wrapper since we can't script the function directly due to imports
+            @torch.jit.script
+            def binned_select_knn_wrapper(K: int, coords: torch.Tensor, row_splits: torch.Tensor) -> torch.Tensor:
+                # We'll test with a simplified version that doesn't use optional parameters
+                # since the function is already JIT scripted
+                idx, dist = binned_select_knn(K, coords, row_splits)
+                return torch.cat([idx.float(), dist], dim=1)
+            
+            # Test the wrapper
+            with torch.no_grad():
+                wrapper_output = binned_select_knn_wrapper(K, coordinates, row_splits)
+                self.assertEqual(wrapper_output.shape, (N, 2*K))
+            
+        except Exception as e:
+            self.fail(f"Failed to script BinnedSelectKnnModule on {device}: {str(e)}")
 
-            module = BinnedSelectKnnModule(cuda=cuda).to(device)
-            try:
-                scripted = torch.jit.script(module)
-                with torch.no_grad():
-                    orig_idx, orig_dist = module(K, coords, rs, dirn, n_bins)
-                    scr_idx, scr_dist = scripted(K, coords, rs, dirn, n_bins)
-                # Compare outputs
-                assert torch.allclose(
-                    orig_idx.cpu(), scr_idx.cpu(), atol=1e-6), "Indices mismatch"
-                assert torch.allclose(
-                    orig_dist.cpu(), scr_dist.cpu(), atol=1e-6), "Distances mismatch"
-                assert orig_idx.shape == scr_idx.shape
-                assert orig_dist.shape == scr_dist.shape
-            except Exception as e:
-                self.fail(
-                    f"Failed to script BinnedSelectKnnModule (cuda={cuda}): {str(e)}")
+    def test_jit_script_compatibility_cpu(self):
+        """Test JIT script compatibility on CPU."""
+        self.do_jit_script_compatibility_test('cpu')
+
+    @unittest.skipIf(not torch.cuda.is_available(), "CUDA not available")
+    def test_jit_script_compatibility_cuda(self):
+        """Test JIT script compatibility on CUDA."""
+        self.do_jit_script_compatibility_test('cuda')
 
 
 if __name__ == '__main__':

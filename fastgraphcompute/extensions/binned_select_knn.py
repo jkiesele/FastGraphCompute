@@ -9,7 +9,7 @@ from typing import Optional, Tuple
 torch.ops.load_library(osp.join(osp.dirname(
     osp.realpath(__file__)), 'binned_knn_ops.so'))
 
-
+@torch.jit.script
 def binned_select_knn(K: int,
                       coords: torch.Tensor,
                       row_splits: torch.Tensor,
