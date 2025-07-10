@@ -63,7 +63,6 @@ class GravNetOp(torch.nn.Module):
         # Store optimization arguments for neighbor selection
         self.optimization_arguments = optimization_arguments
 
-    
     def forward(self, x : torch.Tensor, row_splits : torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Forward pass of the GravNet layer.
