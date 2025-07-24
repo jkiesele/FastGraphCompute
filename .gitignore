@@ -1,5 +1,7 @@
 archive/
 *.sh
+.vscode
+.egg
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -186,10 +186,9 @@ class ObjectCondensation(torch.nn.Module):
         eps = 1e-3
         # Continuous max approximation using LogSumExp
         beta_pen = 1. - eps * torch.logsumexp(beta_k_m / eps, dim=1)  # Sum over M
-    
+
         # Add penalty for faster convergence
         beta_pen += 1. - torch.clamp(torch.sum(beta_k_m, dim=1), min=0., max=1.)
-        
         return beta_pen
 
 
@@ -310,20 +309,22 @@ class ObjectCondensation(torch.nn.Module):
         batch_idx = strict_batch_from_row_splits(row_splits)
         K_k = select_with_default(M, obj_per_rs[batch_idx].view(-1,1), 1)[:,0] #for normalisation, (K, 1)
 
+        # for proper normalisation, we also need to adjust for the number of batch elements
+        K_k = K_k * float(row_splits.shape[0] - 1) #never zero
+
         # mean over V' and mean over K
         L_V = torch.sum(L_V_k / K_k ) # scalar
 
         # mean over N and mean over K
         L_rep = torch.sum(L_rep_k / K_k) # scalar
 
-        
         #scatter back V = V_attractive + V_repulsive and pl_scaling to (N, 1)
         L_k_m = (L_V_k + L_rep_k).view(-1, 1, 1).repeat(1, M.size(1), 1)
         L_V_rep_N = self._scatter_to_N_indices(L_k_m, asso_idx, M).view(-1,1) # N x 1
 
         # create the beta loss
         L_b_k = self._beta_loss(beta_k_m) # K x 1
-        L_b = torch.sum(L_b_k / K_k) 
+        L_b = torch.sum(L_b_k / K_k) # scalar
 
         # add noise term
         L_noise = self.s_B *  beta * (asso_idx < 0).view(-1,1)  #norm per rs here too
