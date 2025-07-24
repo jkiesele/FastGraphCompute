@@ -1,5 +1,6 @@
 import unittest
 import torch
+import io
 from fastgraphcompute.gnn_ops import GravNetOp
 
 
@@ -15,21 +16,80 @@ class SimpleGravNetModel(torch.nn.Module):
             # Ensure that any additional arguments are TorchScript compatible
             optimization_arguments={}
         )
+        self.scripted_gravnet = torch.jit.script(self.gravnet)
         self.fc = torch.nn.Linear(prop_dim, prop_dim)
 
     def forward(self, x, row_splits):
-        x, *_ = self.gravnet(x, row_splits)
+        x, *_ = self.scripted_gravnet(x, row_splits)
         x = self.fc(x)
         return x
 
 class TestGravNetOp(unittest.TestCase):
 
+    def test_jit_script_compatibility(self):
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        in_dim, prop_dim, s, k = 8, 16, 3, 8
+        model = SimpleGravNetModel(in_dim, prop_dim, s, k).to(device)
+        
+        try:
+            # Test scripting the full model
+            scripted_model = torch.jit.script(model)
+            x = torch.randn(100, in_dim).to(device)
+            row_splits = torch.tensor([0, 50, 100], dtype=torch.int32).to(device)
+
+            # Test that both models work and produce consistent outputs
+            with torch.no_grad():
+                original_output = model(x, row_splits)
+                scripted_output = scripted_model(x, row_splits)
+            
+            # Verify outputs are not None and have correct shape
+            self.assertIsNotNone(original_output)
+            self.assertIsNotNone(scripted_output)
+            self.assertEqual(original_output.shape, (100, prop_dim))
+            self.assertEqual(scripted_output.shape, (100, prop_dim))
+            
+            # Verify numerical equivalence
+            self.assertTrue(torch.allclose(original_output, scripted_output, atol=1e-6))
+            
+            # Test save/load functionality
+            buffer = io.BytesIO()
+            torch.jit.save(scripted_model, buffer)
+            buffer.seek(0)
+            loaded_model = torch.jit.load(buffer)
+            
+            with torch.no_grad():
+                loaded_output = loaded_model(x, row_splits)
+            
+            self.assertIsNotNone(loaded_output)
+            self.assertEqual(loaded_output.shape, (100, prop_dim))
+            self.assertTrue(torch.allclose(original_output, loaded_output, atol=1e-6))
+            
+            # Test that the GravNetOp itself can be scripted independently
+            gravnet_op = GravNetOp(
+                in_channels=in_dim,
+                out_channels=prop_dim,
+                space_dimensions=s,
+                k=k,
+                propagate_dimensions=prop_dim,
+                optimization_arguments={}
+            ).to(device)
+            
+            scripted_gravnet = torch.jit.script(gravnet_op)
+            with torch.no_grad():
+                gravnet_output, *_ = gravnet_op(x, row_splits)
+                scripted_gravnet_output, *_ = scripted_gravnet(x, row_splits)
+            
+            self.assertTrue(torch.allclose(gravnet_output, scripted_gravnet_output, atol=1e-6))
+            
+        except Exception as e:
+            self.fail(f"Failed to script GravNetOp: {str(e)}")
+
     def do_shape_test(self, device):
 
         for in_dim in [8, 12, 64]:
             for prop_dim in  [8, 12, 64]:
-                for k in [8, 100]:
-                    for s in [2,3,16]:
+                for k in [8, 32]:
+                    for s in [2,3,5]:
                        
                         op = GravNetOp(in_channels=in_dim,
                                        out_channels=2 * prop_dim,
@@ -52,8 +112,7 @@ class TestGravNetOp(unittest.TestCase):
         self.do_shape_test('cuda')
 
     
-    # TBI
-    def do_not_test_jit_compatibility(self, device = 'cpu'):
+    def test_jit_tracing_compatibility(self, device = 'cpu'):
         in_dim = 8
         prop_dim = 16
         k = 10

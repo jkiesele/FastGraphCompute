@@ -143,7 +143,7 @@ class ObjectCondensation(torch.nn.Module):
             x_k_1 (torch.Tensor): The values to scatter, shape (K, M, 1)
         '''
         # Step 1: Use select_with_default to get indices
-        M2 = select_with_default(M, torch.arange(asso_indices.size(0), device=asso_indices.device).view(-1, 1), -1)
+        M2 = select_with_default(M, torch.arange(asso_indices.size(0), device=asso_indices.device, dtype=torch.int64).view(-1, 1), -1)
         
         # Step 3: Flatten valid entries in M2
         valid_mask = M2 >= 0
@@ -166,7 +166,7 @@ class ObjectCondensation(torch.nn.Module):
         lengths = row_splits[1:] - row_splits[:-1]
         
         # Create indices for each row split
-        row_indices = torch.repeat_interleave(torch.arange(len(lengths), device=row_splits.device), lengths)
+        row_indices = torch.repeat_interleave(torch.arange(len(lengths), device=row_splits.device, dtype=torch.int64), lengths)
         
         # Calculate sum per row split
         sum_per_split = torch.zeros(len(lengths), dtype=torch.float32, device=row_splits.device).scatter_add(0, row_indices, x.squeeze(1))
@@ -197,7 +197,7 @@ class ObjectCondensation(torch.nn.Module):
         Calculates the arg max of beta_k_m in dimension 1.
         '''
         m_idxs = torch.argmax(beta_k_m, dim=1).squeeze(1)
-        return M[torch.arange(M.size(0)), m_idxs]
+        return M[torch.arange(M.size(0), dtype=torch.int64), m_idxs]
 
     def V_repulsive_func(self, distsq):
         '''

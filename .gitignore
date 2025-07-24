@@ -1,5 +1,7 @@
 archive/
+*.sh
 .vscode
+.egg
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -130,3 +132,20 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# VSC
+.windsurfrules
+.vscode
+.VSCodeCounter
+
+
+# Git
+.git
+.git/
+# .gitignore
+.gitattributes
+.gitmodules
+
+# claude
+.claude/
+.cursor/

@@ -1,4 +1,3 @@
-
 #include <torch/extension.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -6,14 +5,23 @@
 #include "cuda_helpers.h"
 #include "helpers.h"
 #include <vector>
+#include <c10/macros/Macros.h>
 
+#define C10_CUDA_KERNEL_LAUNCH_CHECK() {                         \
+    cudaError_t err = cudaGetLastError();                        \
+    if (err != cudaSuccess) {                                    \
+        printf("CUDA Kernel launch error: %s\n",                 \
+               cudaGetErrorString(err));                         \
+        exit(EXIT_FAILURE);                                      \
+    }                                                            \
+}
 
 __device__
-static float calculateDistance(size_t i_v, size_t j_v, const float * d_coord, size_t n_coords){
+static float calculateDistance(int64_t i_v, int64_t j_v, const float * d_coord, int64_t n_coords){
     float distsq=0;
     if(i_v == j_v)
         return 0;
-    for(size_t i=0;i<n_coords;i++){
+    for(int64_t i=0;i<n_coords;i++){
         float dist = d_coord[I2D(i_v,i,n_coords)] - d_coord[I2D(j_v,i,n_coords)];
         distsq += dist*dist;
     }
@@ -22,9 +30,9 @@ static float calculateDistance(size_t i_v, size_t j_v, const float * d_coord, si
 
 
 __device__ __forceinline__
-static float calculateDistanceLocalChache(const float *  coord_i_v, size_t j_v, const float * d_coord, size_t n_coords){
+static float calculateDistanceLocalChache(const float *  coord_i_v, int64_t j_v, const float * d_coord, int64_t n_coords){
     float distsq=0;
-    for(size_t i=0;i<n_coords;i++){
+    for(int64_t i=0;i<n_coords;i++){
         float dist = coord_i_v[i] - d_coord[I2D(j_v,i,n_coords)];
         distsq += dist*dist;
     }
@@ -33,13 +41,13 @@ static float calculateDistanceLocalChache(const float *  coord_i_v, size_t j_v, 
 
 
 __device__
-static int searchLargestDistance(int i_v, float* d_dist, int n_neigh, float& maxdist){
+static int64_t searchLargestDistance(int64_t i_v, float* d_dist, int64_t n_neigh, float& maxdist){
 
     maxdist=0;
-    int maxidx=0;
+    int64_t maxidx=0;
     if(n_neigh < 2)
         return maxidx;
-    for(size_t n=1;n<n_neigh;n++){ //0 is self
+    for(int64_t n=1;n<n_neigh;n++){ //0 is self
         float distsq = d_dist[I2D(i_v,n,n_neigh)];
         if(distsq > maxdist){
             maxdist = distsq;
@@ -52,29 +60,36 @@ static int searchLargestDistance(int i_v, float* d_dist, int n_neigh, float& max
 
 __global__
 static void setDefaults(
-        int *d_indices,
+        int64_t *d_indices,
         float *d_dist,
         const bool tf_compat,
-        const int n_vert,
-        const int n_neigh
+        const int64_t n_vert,
+        const int64_t n_neigh
 ){
-    const size_t i_v =  blockIdx.x * blockDim.x + threadIdx.x;
+    const int64_t i_v =  blockIdx.x * blockDim.x + threadIdx.x;
     if(i_v >= n_vert)
         return;
-    const size_t n =  blockIdx.y * blockDim.y + threadIdx.y;
+    const int64_t n =  blockIdx.y * blockDim.y + threadIdx.y;
     if(n >= n_neigh)
         return;
 
+    int64_t idx = I2D(i_v,n,n_neigh);
+    // Bounds check to prevent buffer overflow
+    if(idx >= n_vert * n_neigh || idx < 0) {
+        printf("CUDA setDefaults: Buffer overflow prevented at index %lld\n", idx);
+        return;
+    }
+
     if(n){
         if(tf_compat)
-            d_indices[I2D(i_v,n,n_neigh)] = i_v;
+            d_indices[idx] = i_v;
         else
-            d_indices[I2D(i_v,n,n_neigh)] = -1;
+            d_indices[idx] = -1;
     }
     else{
-        d_indices[I2D(i_v,n,n_neigh)] = i_v;
+        d_indices[idx] = i_v;
     }
-    d_dist[I2D(i_v,n,n_neigh)] = 0;
+    d_dist[idx] = 0;
 
 
 }
@@ -95,15 +110,15 @@ static void select_knn_kernel(
 
         const float* d_bin_width,
 
-        int *d_indices,
+        int64_t *d_indices,
         float *d_dist,
 
-        const int n_vert,
-        const int n_neigh,
-        const int n_coords,
-        const int n_bin_dim,
+        const int64_t n_vert,
+        const int64_t n_neigh,
+        const int64_t n_coords,
+        const int64_t n_bin_dim,
 
-        const int n_bboundaries,
+        const int64_t n_bboundaries,
         bool use_direction) {
 
     //bin boundaries [i] [i+1] describe the scan ranges
@@ -112,7 +127,7 @@ static void select_knn_kernel(
     //really no buffering at all here
 
 
-    int i_v =  blockIdx.x * blockDim.x + threadIdx.x;
+    int64_t i_v =  blockIdx.x * blockDim.x + threadIdx.x;
     if(i_v>=n_vert)
         return;//safe guard
 
@@ -124,30 +139,30 @@ static void select_knn_kernel(
     //continue;//do nothing
 
 
-    size_t nfilled=1;//self-reference from defaults
-    size_t maxidx_local=0;
+    int64_t nfilled=1;//self-reference from defaults
+    int64_t maxidx_local=0;
     float maxdistsq=0;
 
-    int total_subbins = 1;
-    for(int sbi=0;sbi<n_bin_dim;sbi++)
+    int64_t total_subbins = 1;
+    for(int64_t sbi=0;sbi<n_bin_dim;sbi++)
         total_subbins *= d_n_bins[sbi];
 
-    int iv_bin = d_bin_idx[i_v];
-    int gbin_offset = total_subbins*(iv_bin / total_subbins);
-    int sb_flat_offset = iv_bin - gbin_offset;
+    int64_t iv_bin = d_bin_idx[i_v];
+    int64_t gbin_offset = total_subbins*(iv_bin / total_subbins);
+    int64_t sb_flat_offset = iv_bin - gbin_offset;
 
     // printf("considering vertex %d, bin %d, flat offset %d, global bin offset %d\n",i_v,iv_bin,sb_flat_offset,gbin_offset);
     
     float coord_i_v[10];//keep this and the next "10" in sync
-    int max_loc_n_coords = std::min(n_coords,10);
-    for(size_t i=0;i<max_loc_n_coords;i++){
+    int64_t max_loc_n_coords = std::min(n_coords,(int64_t)10);
+    for(int64_t i=0;i<max_loc_n_coords;i++){
         coord_i_v[i] = d_coord[I2D(i_v,i,n_coords)];
     }
 
     binstepper<N_bin_dims, T> stepper(d_n_bins, &d_dim_bin_idx[I2D(i_v,1,n_bin_dim+1)]);
 
     bool continue_search = true;
-    int distance = 0;
+    int64_t distance = 0;
     while(continue_search){
 
         stepper.set_d(distance);
@@ -155,10 +170,10 @@ static void select_knn_kernel(
         continue_search=false;
 
         while(true){
-            int idx = stepper.step();
+            int64_t idx = stepper.step();
             if(idx<0){//not valid
                 if(!continue_search && !distance){//this should not happen
-                    printf("\nERROR: binned_select_knn.cu: stopping search for vtx %d at distance %d\n",i_v,distance);
+                    printf("\nERROR: binned_select_knn.cu: stopping search for vtx %lld at distance %lld\n",i_v,distance);
                 }
                 break;
 
@@ -167,12 +182,12 @@ static void select_knn_kernel(
             idx+=gbin_offset;
 
             if(idx>=n_bboundaries-1){
-                printf("\nERROR: binned_select_knn.cu: boundary issue: idx %d out of range, gb offset %d, distance %d, sb_flat_offset %d, nbb %d\n", idx, gbin_offset, distance, sb_flat_offset,n_bboundaries);
+                printf("\nERROR: binned_select_knn.cu: boundary issue: idx %lld out of range, gb offset %lld, distance %lld, sb_flat_offset %lld, nbb %lld\n", idx, gbin_offset, distance, sb_flat_offset,n_bboundaries);
                 continue;
             }
 
-            int start_vertex = d_bin_boundaries[idx];
-            int end_vertex = d_bin_boundaries[idx+1];
+            int64_t start_vertex = d_bin_boundaries[idx];
+            int64_t end_vertex = d_bin_boundaries[idx+1];
 
             if(start_vertex == end_vertex){ //empty bin
                 continue_search=true; //correct?
@@ -180,11 +195,11 @@ static void select_knn_kernel(
             }
 
             if(start_vertex>=n_vert || end_vertex>n_vert){
-                printf("\nERROR: binned_select_knn.cu: start_vertex %d or end_vertex %d out of range %d \n", start_vertex, end_vertex, n_vert);
+                printf("\nERROR: binned_select_knn.cu: start_vertex %lld or end_vertex %lld out of range %lld \n", start_vertex, end_vertex, n_vert);
                 continue;//safe guard
             }
 
-            for(size_t j_v=start_vertex;j_v<end_vertex;j_v++){
+            for(int64_t j_v=start_vertex;j_v<end_vertex;j_v++){
                 if(i_v == j_v)
                     continue;
 
@@ -231,7 +246,7 @@ static void select_knn_kernel(
 }
 
 
-// Function to dispatch based on input tensor types (int32 or int64)
+// Function to dispatch based on input tensor types (int64 or int64)
 std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
     torch::Tensor coordinates,
     torch::Tensor bin_idx,
@@ -249,7 +264,7 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
     const auto n_bboundaries = bin_boundaries.size(0);
     const auto n_bin_dims = n_bins.size(0);
 
-    auto options_int = torch::TensorOptions().dtype(torch::kInt32).device(coordinates.device());
+    auto options_int = torch::TensorOptions().dtype(torch::kInt64).device(coordinates.device());
     auto options_float = torch::TensorOptions().dtype(torch::kFloat32).device(coordinates.device());
 
     torch::Tensor indices = torch::empty({n_vert, K}, options_int);
@@ -258,42 +273,47 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
     grid_and_block gb_set_def(n_vert,256,K,4);
     grid_and_block gb(n_vert,512);
 
-    setDefaults<<<gb_set_def.grid(),gb_set_def.block()>>>(indices.data_ptr<int32_t>(), distances.data_ptr<float>(), tf_compat, n_vert, K);
+    setDefaults<<<gb_set_def.grid(),gb_set_def.block()>>>(indices.data_ptr<int64_t>(), distances.data_ptr<float>(), tf_compat, n_vert, K);
     
+    // check direction
+    
+
+    C10_CUDA_KERNEL_LAUNCH_CHECK();
+
     cudaDeviceSynchronize();
     
-    if (bin_idx.scalar_type() == torch::kInt32) {
+    if (bin_idx.scalar_type() == torch::kInt64) {
 
         if (n_bin_dims == 2)
-            select_knn_kernel<2, int32_t><<<gb.grid(),gb.block()>>>(
-                coordinates.data_ptr<float>(), bin_idx.data_ptr<int32_t>(),
-                direction.data_ptr<int32_t>(), dim_bin_idx.data_ptr<int32_t>(),
-                bin_boundaries.data_ptr<int32_t>(), n_bins.data_ptr<int32_t>(),
-                bin_width.data_ptr<float>(), indices.data_ptr<int32_t>(),
+            select_knn_kernel<2, int64_t><<<gb.grid(),gb.block()>>>(
+                coordinates.data_ptr<float>(), bin_idx.data_ptr<int64_t>(),
+                direction.data_ptr<int64_t>(), dim_bin_idx.data_ptr<int64_t>(),
+                bin_boundaries.data_ptr<int64_t>(), n_bins.data_ptr<int64_t>(),
+                bin_width.data_ptr<float>(), indices.data_ptr<int64_t>(),
                 distances.data_ptr<float>(), n_vert, K, n_coords, n_bin_dims, n_bboundaries, use_direction);
         
         else if (n_bin_dims == 3)
-            select_knn_kernel<3, int32_t><<<gb.grid(),gb.block()>>>(
-                coordinates.data_ptr<float>(), bin_idx.data_ptr<int32_t>(),
-                direction.data_ptr<int32_t>(), dim_bin_idx.data_ptr<int32_t>(),
-                bin_boundaries.data_ptr<int32_t>(), n_bins.data_ptr<int32_t>(),
-                bin_width.data_ptr<float>(), indices.data_ptr<int32_t>(),
+            select_knn_kernel<3, int64_t><<<gb.grid(),gb.block()>>>(
+                coordinates.data_ptr<float>(), bin_idx.data_ptr<int64_t>(),
+                direction.data_ptr<int64_t>(), dim_bin_idx.data_ptr<int64_t>(),
+                bin_boundaries.data_ptr<int64_t>(), n_bins.data_ptr<int64_t>(),
+                bin_width.data_ptr<float>(), indices.data_ptr<int64_t>(),
                 distances.data_ptr<float>(), n_vert, K, n_coords, n_bin_dims, n_bboundaries, use_direction);
 
         else if (n_bin_dims == 4)
-            select_knn_kernel<4, int32_t><<<gb.grid(),gb.block()>>>(
-                coordinates.data_ptr<float>(), bin_idx.data_ptr<int32_t>(),
-                direction.data_ptr<int32_t>(), dim_bin_idx.data_ptr<int32_t>(),
-                bin_boundaries.data_ptr<int32_t>(), n_bins.data_ptr<int32_t>(),
-                bin_width.data_ptr<float>(), indices.data_ptr<int32_t>(),
+            select_knn_kernel<4, int64_t><<<gb.grid(),gb.block()>>>(
+                coordinates.data_ptr<float>(), bin_idx.data_ptr<int64_t>(),
+                direction.data_ptr<int64_t>(), dim_bin_idx.data_ptr<int64_t>(),
+                bin_boundaries.data_ptr<int64_t>(), n_bins.data_ptr<int64_t>(),
+                bin_width.data_ptr<float>(), indices.data_ptr<int64_t>(),
                 distances.data_ptr<float>(), n_vert, K, n_coords, n_bin_dims, n_bboundaries, use_direction);
 
         else if (n_bin_dims == 5)
-            select_knn_kernel<5, int32_t><<<gb.grid(),gb.block()>>>(
-                coordinates.data_ptr<float>(), bin_idx.data_ptr<int32_t>(),
-                direction.data_ptr<int32_t>(), dim_bin_idx.data_ptr<int32_t>(),
-                bin_boundaries.data_ptr<int32_t>(), n_bins.data_ptr<int32_t>(),
-                bin_width.data_ptr<float>(), indices.data_ptr<int32_t>(),
+            select_knn_kernel<5, int64_t><<<gb.grid(),gb.block()>>>(
+                coordinates.data_ptr<float>(), bin_idx.data_ptr<int64_t>(),
+                direction.data_ptr<int64_t>(), dim_bin_idx.data_ptr<int64_t>(),
+                bin_boundaries.data_ptr<int64_t>(), n_bins.data_ptr<int64_t>(),
+                bin_width.data_ptr<float>(), indices.data_ptr<int64_t>(),
                 distances.data_ptr<float>(), n_vert, K, n_coords, n_bin_dims, n_bboundaries, use_direction);
 
         else{
@@ -307,7 +327,7 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
                 coordinates.data_ptr<float>(), bin_idx.data_ptr<int64_t>(),
                 direction.data_ptr<int64_t>(), dim_bin_idx.data_ptr<int64_t>(),
                 bin_boundaries.data_ptr<int64_t>(), n_bins.data_ptr<int64_t>(),
-                bin_width.data_ptr<float>(), indices.data_ptr<int32_t>(),
+                bin_width.data_ptr<float>(), indices.data_ptr<int64_t>(),
                 distances.data_ptr<float>(), n_vert, K, n_coords, n_bin_dims, n_bboundaries, use_direction);
        
         else if (n_bin_dims == 3)
@@ -315,7 +335,7 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
                 coordinates.data_ptr<float>(), bin_idx.data_ptr<int64_t>(),
                 direction.data_ptr<int64_t>(), dim_bin_idx.data_ptr<int64_t>(),
                 bin_boundaries.data_ptr<int64_t>(), n_bins.data_ptr<int64_t>(),
-                bin_width.data_ptr<float>(), indices.data_ptr<int32_t>(),
+                bin_width.data_ptr<float>(), indices.data_ptr<int64_t>(),
                 distances.data_ptr<float>(), n_vert, K, n_coords, n_bin_dims, n_bboundaries, use_direction);
 
         else if (n_bin_dims == 4)
@@ -323,7 +343,7 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
                 coordinates.data_ptr<float>(), bin_idx.data_ptr<int64_t>(),
                 direction.data_ptr<int64_t>(), dim_bin_idx.data_ptr<int64_t>(),
                 bin_boundaries.data_ptr<int64_t>(), n_bins.data_ptr<int64_t>(),
-                bin_width.data_ptr<float>(), indices.data_ptr<int32_t>(),
+                bin_width.data_ptr<float>(), indices.data_ptr<int64_t>(),
                 distances.data_ptr<float>(), n_vert, K, n_coords, n_bin_dims, n_bboundaries, use_direction);
 
         else if (n_bin_dims == 5)
@@ -331,12 +351,13 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
                 coordinates.data_ptr<float>(), bin_idx.data_ptr<int64_t>(),
                 direction.data_ptr<int64_t>(), dim_bin_idx.data_ptr<int64_t>(),
                 bin_boundaries.data_ptr<int64_t>(), n_bins.data_ptr<int64_t>(),
-                bin_width.data_ptr<float>(), indices.data_ptr<int32_t>(),
+                bin_width.data_ptr<float>(), indices.data_ptr<int64_t>(),
                 distances.data_ptr<float>(), n_vert, K, n_coords, n_bin_dims, n_bboundaries, use_direction);
 
         else{
             throw std::invalid_argument("Unsupported number of binning dimensions.");
         }
+        C10_CUDA_KERNEL_LAUNCH_CHECK();
     } else {
         throw std::invalid_argument("Unsupported tensor type for bin_idx.");
     }

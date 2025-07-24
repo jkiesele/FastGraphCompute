@@ -8,11 +8,64 @@
 #ifndef HGCALML_MODULES_COMPILED_CUDA_HELPERS_H_
 #define HGCALML_MODULES_COMPILED_CUDA_HELPERS_H_
 
-
-
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
+
+// Common code that can be used in both CPU and CUDA contexts
+template<class T>
+class _grid_and_block {
+public:
+    _grid_and_block(size_t nx, size_t xb, size_t ny=1, size_t yb=1, size_t nz=1, size_t zb=1) {
+        calcGB(nx, xb, gx_, bx_);
+        calcGB(ny, yb, gy_, by_);
+        calcGB(nz, zb, gz_, bz_);
+    }
+
+    dim3 grid() const {
+        return dim3(gx_, gy_, gz_);
+    }
+    dim3 block() const {
+        return dim3(bx_, by_, bz_);
+    }
+
+private:
+    void calcGB(size_t n, size_t b, T& grid, T& block) {
+        grid = n/b;
+        block = b;
+        if(n%b)
+            grid += 1;
+        if(!grid)
+            grid = 1;
+    }
+    _grid_and_block() : gx_(0), gy_(0), gz_(0), bx_(0), by_(0), bz_(0) {}
+    T gx_, gy_, gz_;
+    T bx_, by_, bz_;
+};
+
+// Only include CUDA-specific code when CUDA is available
+#ifdef TORCH_CUDA_AVAILABLE
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <cuda_runtime_api.h>
+
+template<class T>
+class _lock_mutex {
+public:
+    _lock_mutex() {
+        T state = 0;
+        cudaMalloc((void**)&mutex_, sizeof(T));
+        cudaMemcpy(mutex_, &state, sizeof(T), cudaMemcpyHostToDevice);
+    }
+    ~_lock_mutex() {
+        cudaFree(mutex_);
+    }
+
+    T* mutex() { return mutex_; }
+
+private:
+    T* mutex_;
+};
 
 template <class T>
 //from dlib!
@@ -63,13 +116,13 @@ public:
         }
 
         __device__ iterator& operator++()
-                                                {
+        {
             pos += gridDim.x * blockDim.x;
             return *this;
-                                                }
+        }
 
         __device__ bool operator!=(const iterator& item) const
-                                                { return pos < item.pos; }
+        { return pos < item.pos; }
 
     private:
         T pos;
@@ -83,8 +136,8 @@ public:
     {
         return iterator(iend);
     }
-private:
 
+private:
     T ibegin;
     T iend;
 };
@@ -145,13 +198,13 @@ public:
         }
 
         __device__ iterator& operator++()
-                        {
+        {
             pos += gridDim.y * blockDim.y;
             return *this;
-                        }
+        }
 
         __device__ bool operator!=(const iterator& item) const
-                        { return pos < item.pos; }
+        { return pos < item.pos; }
 
     private:
         T pos;
@@ -165,64 +218,12 @@ public:
     {
         return iterator(iend);
     }
-private:
 
+private:
     T ibegin;
     T iend;
 };
 
-template<class T>
-class _grid_and_block {
-    /*
-     * This can include some hardware resource (SM) checking etc in a future version
-     */
-public:
-
-    _grid_and_block(size_t nx,size_t xb,size_t ny=1,size_t yb=1,size_t nz=1,size_t zb=1){
-        calcGB(nx, xb, gx_, bx_);
-        calcGB(ny, yb, gy_, by_);
-        calcGB(nz, zb, gz_, bz_);
-    }
-
-    dim3 grid()const{
-        return dim3(gx_,gy_,gz_);
-    }
-    dim3 block()const{
-        return dim3(bx_,by_,bz_);
-    }
-
-private:
-    void calcGB(size_t n,size_t b, T& grid, T& block){
-        grid = n/b;
-        block=b;
-        if(n%b)
-            grid+=1;
-        if(!grid)
-            grid=1;
-    }
-    _grid_and_block():gx_(0),gy_(0),gz_(0),bx_(0),by_(0),bz_(0){}
-    T gx_,gy_,gz_; //replace by T
-    T bx_,by_,bz_;
-};
-
-template<class T>
-class _lock_mutex{
-public:
-
-    _lock_mutex(){
-        T state=0;
-        cudaMalloc((void**)&mutex_, sizeof(T));
-        cudaMemcpy(mutex_, &state, sizeof(T), cudaMemcpyHostToDevice);
-    }
-    ~_lock_mutex(){
-        cudaFree(mutex_);
-    }
-
-    T* mutex(){return mutex_;}
-
-private:
-    T * mutex_;
-};
 template<class T>
 class _lock{
 public:
@@ -276,8 +277,18 @@ private:
 
 typedef _grid_stride_range<size_t> grid_stride_range;
 typedef _grid_stride_range_y<size_t> grid_stride_range_y;
-typedef _grid_and_block<size_t> grid_and_block;
 typedef _lock<int> lock;
 typedef _lock_mutex<int> lock_mutex;
+
+#else
+// CPU-only versions of the types
+typedef _grid_and_block<size_t> grid_stride_range;
+typedef _grid_and_block<size_t> grid_stride_range_y;
+typedef void* lock;
+typedef void* lock_mutex;
+#endif
+
+// Common type that works in both CPU and CUDA
+typedef _grid_and_block<size_t> grid_and_block;
 
 #endif /* HGCALML_MODULES_COMPILED_CUDA_HELPERS_H_ */

@@ -3,37 +3,37 @@
 // #include <string> //size_t, just for helper function
 #include <cmath>
 
-#define CHECK_CPU(x) AT_ASSERTM(x.device().is_cpu(), #x " must be CPU tensor")
+#define CHECK_CPU(x) TORCH_CHECK(x.device().is_cpu(), #x " must be CPU tensor")
 #define I2D(i,j,Nj) j + Nj*i
 
 
 float calculateDistance(
-    size_t i_v, 
-    size_t j_v, 
-    const float_t *d_coord, 
-    size_t n_coords) 
+    int64_t i_v, 
+    int64_t j_v, 
+    const float *d_coord, 
+    int64_t n_coords) 
 {
     float distsq = 0;
     if (i_v == j_v)
         return 0;
-    for (size_t i = 0; i < n_coords; i++) {
+    for (int64_t i = 0; i < n_coords; i++) {
         float dist = d_coord[I2D(i_v, i, n_coords)] - d_coord[I2D(j_v, i, n_coords)];
         distsq += dist * dist;
     }
     return distsq;
 }
 
-int searchLargestDistance(
-    size_t i_v, 
-    float_t *d_dist, 
-    size_t n_neigh, 
+int64_t searchLargestDistance(
+    int64_t i_v, 
+    float *d_dist, 
+    int64_t n_neigh, 
     float& maxdist) 
 {
     maxdist = 0;
-    int maxidx = 0;
+    int64_t maxidx = 0;
     if (n_neigh < 2)
         return maxidx;
-    for (int n = 1; n < n_neigh; n++) { //0 is self
+    for (int64_t n = 1; n < n_neigh; n++) { //0 is self
         float distsq = d_dist[I2D(i_v, n, n_neigh)];
         if (distsq > maxdist) {
             maxdist = distsq;
@@ -44,15 +44,14 @@ int searchLargestDistance(
 }
 
 void set_defaults(
-    int32_t *d_indices,
-    float_t *d_dist,
-    const size_t n_vert,
-    const size_t n_neigh)
+    int64_t *d_indices,
+    float *d_dist,
+    const int64_t n_vert,
+    const int64_t n_neigh)
 {
-    for (int i_v = 0; i_v < n_vert; i_v++) {
-        for (size_t n = 0; n < n_neigh; n++)
+    for (int64_t i_v = 0; i_v < n_vert; i_v++) {
+        for (int64_t n = 0; n < n_neigh; n++)
         {
-
             if (n)
             {
                 d_indices[I2D(i_v, n, n_neigh)] = -1;
@@ -62,44 +61,43 @@ void set_defaults(
                 d_indices[I2D(i_v, n, n_neigh)] = i_v;
             }
             d_dist[I2D(i_v, n, n_neigh)] = 0;
-
         }
     }
 }
 
 void select_knn_kernel(
-    const float_t *d_coord,
-    const int32_t *d_row_splits,
-    const int32_t *d_mask,
-    int32_t *d_indices,
-    float_t *d_dist,
+    const float *d_coord,
+    const int64_t *d_row_splits,
+    const int64_t *d_mask,
+    int64_t *d_indices,
+    float *d_dist,
 
-    const size_t n_vert,
-    const size_t n_neigh,
-    const size_t n_coords,
+    const int64_t n_vert,
+    const int64_t n_neigh,
+    const int64_t n_coords,
 
-    const size_t j_rs,
-    const float_t max_radius) {
+    const int64_t j_rs,
+    const float max_radius) {
 
-    const size_t start_vert = d_row_splits[j_rs];
-    const size_t end_vert = d_row_splits[j_rs + 1];
+    const int64_t start_vert = d_row_splits[j_rs];
+    const int64_t end_vert = d_row_splits[j_rs + 1];
 
-    for (size_t i_v = start_vert; i_v < end_vert; i_v++) {
+    for (int64_t i_v = start_vert; i_v < end_vert; i_v++) {
         if (i_v >= n_vert)
             return;//this will be a problem with actual RS, just a safety net
         
         //protection against n_vert<n_neigh
         
-        size_t nvert_in_row = end_vert - start_vert;
-        size_t max_neighbours = n_neigh;
+        int64_t nvert_in_row = end_vert - start_vert;
+        int64_t max_neighbours = n_neigh;
         //set default to self
         if (nvert_in_row < n_neigh) {
             max_neighbours = nvert_in_row;
         }
-        size_t nfilled = 1;
-        size_t maxidx_local = 0;
+        int64_t nfilled = 1;
+        int64_t maxidx_local = 0;
         float maxdistsq = 0;
-        for (size_t j_v = start_vert; j_v < end_vert; j_v++) {
+        for (int64_t j_v = start_vert; j_v < end_vert; j_v++) {
             if (i_v == j_v)
                 continue;
             //fill up
@@ -127,17 +125,17 @@ void select_knn_kernel(
 
 }
 
-void compute(const float_t *d_coord,
-    const int32_t *d_row_splits,
-    const int32_t *d_mask,
-    int32_t *d_indices,
-    float_t *d_dist,
+void compute(const float *d_coord,
+    const int64_t *d_row_splits,
+    const int64_t *d_mask,
+    int64_t *d_indices,
+    float *d_dist,
 
-    const size_t n_vert,
-    const size_t n_neigh,
-    const size_t n_coords,
+    const int64_t n_vert,
+    const int64_t n_neigh,
+    const int64_t n_coords,
 
-    const size_t n_rs,
+    const int64_t n_rs,
     const double max_radius)
 {
     set_defaults(d_indices,
@@ -145,7 +143,7 @@ void compute(const float_t *d_coord,
         n_vert,
         n_neigh);
 
-    for (size_t j_rs = 0; j_rs < n_rs - 1; j_rs++) {
+    for (int64_t j_rs = 0; j_rs < n_rs - 1; j_rs++) {
         select_knn_kernel(d_coord,
             d_row_splits,
             d_mask,
@@ -183,15 +181,15 @@ select_knn_cpu(torch::Tensor coords,
 
     auto options = torch::TensorOptions().dtype(torch::kFloat32);
     auto output_dist_tensor = torch::zeros({ n_vert, n_neighbours }, options);
-    auto optionsIdx = torch::TensorOptions().dtype(torch::kInt32);
+    auto optionsIdx = torch::TensorOptions().dtype(torch::kInt64);
     auto output_idx_tensor = torch::zeros({ n_vert, n_neighbours }, optionsIdx);
 
     // Input pointers to the compute function
-    auto d_coords = coords.data_ptr<float_t>();
-    auto d_row_splits = row_splits.data_ptr<int32_t>();
-    auto d_mask = mask.data_ptr<int32_t>();
-    auto d_output_dist = output_dist_tensor.data_ptr<float_t>();
-    auto d_output_idx = output_idx_tensor.data_ptr<int32_t>();
+    auto d_coords = coords.data_ptr<float>();
+    auto d_row_splits = row_splits.data_ptr<int64_t>();
+    auto d_mask = mask.data_ptr<int64_t>();
+    auto d_output_dist = output_dist_tensor.data_ptr<float>();
+    auto d_output_idx = output_idx_tensor.data_ptr<int64_t>();
 
     // Calling compute
     compute(d_coords, 
@@ -206,8 +204,4 @@ select_knn_cpu(torch::Tensor coords,
         max_radius);
 
     return std::make_tuple(output_idx_tensor, output_dist_tensor);
-}
-
-TORCH_LIBRARY(select_knn_cpu, m) {
-  m.def("select_knn_cpu", select_knn_cpu);
 }

@@ -1,12 +1,14 @@
+import time
 import torch
 import os.path as osp
 import fastgraphcompute
-from fastgraphcompute.extensions.oc_helper import max_same_valued_entries_per_row_split  # Your compiled C++ extension module
+# Your compiled C++ extension module
+from fastgraphcompute.extensions.oc_helper import max_same_valued_entries_per_row_split
 
-torch.ops.load_library(osp.join(osp.dirname(osp.realpath(fastgraphcompute.extensions.__file__)), 'oc_helper_helper.so'))
+torch.ops.load_library(osp.join(osp.dirname(osp.realpath(
+    fastgraphcompute.extensions.__file__)), 'oc_helper_helper.so'))
 unique_with_counts = torch.ops.oc_helper_helper.unique_with_counts
 
-import time
 
 def ref_max_same_valued_entries_per_row_split(asso_idx, row_splits, filter_negative: bool = True):
     """
@@ -15,7 +17,7 @@ def ref_max_same_valued_entries_per_row_split(asso_idx, row_splits, filter_negat
     Args:
         asso_idx (torch.Tensor): A tensor containing indices (e.g., labels or values).
         row_splits (torch.Tensor): A tensor defining the start and end points of each row split.
-    
+
     Returns:
         max_per_split (torch.Tensor): A tensor containing the maximum count of the same values for each row split.
         global_max (int): The global maximum count across all row splits.
@@ -25,10 +27,12 @@ def ref_max_same_valued_entries_per_row_split(asso_idx, row_splits, filter_negat
     Notes:
         FIXME: Eventually this should be replaced by a C++/CUDA implementation to avoid the Python loop and enable jit.
     """
-    
+
     n_row_splits = row_splits.size(0) - 1  # number of row splits
-    max_per_split = torch.zeros(n_row_splits, dtype=torch.int64, device=asso_idx.device)
-    objects_per_split = torch.zeros(n_row_splits, dtype=torch.int64, device=asso_idx.device)
+    max_per_split = torch.zeros(
+        n_row_splits, dtype=torch.int64, device=asso_idx.device)
+    objects_per_split = torch.zeros(
+        n_row_splits, dtype=torch.int64, device=asso_idx.device)
 
     for rs_idx in range(n_row_splits):
         start_vertex = row_splits[rs_idx]
@@ -47,7 +51,8 @@ def ref_max_same_valued_entries_per_row_split(asso_idx, row_splits, filter_negat
             continue  # Skip if no valid indices in this split
 
         # Perform unique operation on the filtered slice and get counts
-        unique_vals, counts = torch.unique(asso_idx_filtered, return_counts=True)
+        unique_vals, counts = torch.unique(
+            asso_idx_filtered, return_counts=True)
 
         # Find the maximum count and store it for this row split
         max_per_split[rs_idx] = counts.max()
@@ -65,7 +70,8 @@ def performance_test_unique_with_counts(device='cpu'):
     num_unique = 100_000       # Number of unique elements
 
     # Generate a large tensor with duplicates
-    x = torch.randint(0, num_unique, (num_elements,), dtype=torch.int64, device=device)
+    x = torch.randint(0, num_unique, (num_elements,),
+                      dtype=torch.int64, device=device)
 
     # Warm-up (to avoid initial overhead)
     for _ in range(3):
@@ -104,29 +110,35 @@ def performance_test_unique_with_counts(device='cpu'):
 
     # Performance comparison
     if custom_time < torch_time:
-        print(f"Custom function is faster by {torch_time - custom_time:.4f} seconds.")
+        print(
+            f"Custom function is faster by {torch_time - custom_time:.4f} seconds.")
     else:
-        print(f"torch.unique is faster by {custom_time - torch_time:.4f} seconds.")
+        print(
+            f"torch.unique is faster by {custom_time - torch_time:.4f} seconds.")
 
 
 def performance_test_max_same_valued_entries_per_row_split(device='cpu'):
-    asso_idx, row_splits = torch.randint(-1, 2000, (300000,1), dtype=torch.int32), torch.tensor([0, 4000, 200000, 300000], dtype=torch.int32)
+    asso_idx, row_splits = torch.randint(-1, 2000, (300000, 1), dtype=torch.int64), torch.tensor([
+        0, 4000, 200000, 300000], dtype=torch.int64)
 
     asso_idx = asso_idx.to(device)
     row_splits = row_splits.to(device)
-    
+
     def test(func, asso_idx, row_splits, cuda):
         start_time = time.time()
         for _ in range(10):
             _ = func(asso_idx, row_splits, True)
             if cuda:
-                 torch.cuda.synchronize()
-        return (time.time()- start_time) / 10.
-    
-    t_op = test(ref_max_same_valued_entries_per_row_split, asso_idx, row_splits, cuda= device != 'cpu')
-    c_op = test(max_same_valued_entries_per_row_split, asso_idx, row_splits, cuda =device != 'cpu')
+                torch.cuda.synchronize()
+        return (time.time() - start_time) / 10.
 
-    print(f"time comparison: just torch took {t_op}s, custom took {c_op}s per call on device {device}")
+    t_op = test(ref_max_same_valued_entries_per_row_split,
+                asso_idx, row_splits, cuda=device != 'cpu')
+    c_op = test(max_same_valued_entries_per_row_split,
+                asso_idx, row_splits, cuda=device != 'cpu')
+
+    print(
+        f"time comparison: just torch took {t_op}s, custom took {c_op}s per call on device {device}")
 
 
 if __name__ == '__main__':

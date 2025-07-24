@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-import torch_geometric.nn as pyg_nn  # Assuming GravNetOp is available in torch_geometric
+# Assuming GravNetOp is available in torch_geometric
+import torch_geometric.nn as pyg_nn
 from torch import optim
 
 from fastgraphcompute.gnn_ops import GravNetOp
@@ -89,7 +90,8 @@ class GravNetModel(nn.Module):
 
         # Pass through the final dense layers
         x = self.relu(self.fc3(x))
-        x = self.fc4(x)  # Output layer, no activation if using a loss function directly afterward
+        # Output layer, no activation if using a loss function directly afterward
+        x = self.fc4(x)
 
         return x
 
@@ -106,14 +108,15 @@ def main(no_grad=False, reuse=False):
         for n_nodes in n_nodes_test:
             for use_op in ['torch-geometric', 'custom']:
                 # Example usage
-                device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+                device = torch.device(
+                    'cuda' if torch.cuda.is_available() else 'cpu')
                 in_dim = 64       # Input dimension
                 prop_dim = 32     # Propagation dimension
                 space_dim = 4     # Space dimension
                 k = 64            # Number of neighbors to consider
                 hidden_dim = 128  # Dimension for the dense layers
-                output_dim = 10   # Output dimension (you can adjust according to the task)
-
+                # Output dimension (you can adjust according to the task)
+                output_dim = 10
 
                 my_op = None
                 if use_op == 'custom':
@@ -123,18 +126,20 @@ def main(no_grad=False, reuse=False):
                 # 0/0
 
                 # Initialize the model
-                model = GravNetModel(in_dim, prop_dim, space_dim, k, hidden_dim, output_dim, device, the_op=my_op).to(device)
-
+                model = GravNetModel(in_dim, prop_dim, space_dim, k,
+                                     hidden_dim, output_dim, device, the_op=my_op).to(device)
 
                 if not no_grad:
                     criterion = nn.MSELoss()  # Example: Mean Squared Error loss
-                    optimizer = optim.SGD(model.parameters(), lr=0.01)  # Stochastic Gradient Descent optimizer
+                    # Stochastic Gradient Descent optimizer
+                    optimizer = optim.SGD(model.parameters(), lr=0.01)
 
                 timing_array = []
                 # Example input data
                 for i in range(5):
                     x = torch.randn(n_nodes, in_dim).to(device)
-                    row_splits = torch.tensor([0, n_nodes], dtype=torch.int32).to(device)
+                    row_splits = torch.tensor(
+                        [0, n_nodes], dtype=torch.int64).to(device)
                     # Forward pass
                     t1 = time.time()
                     if no_grad:
@@ -146,28 +151,32 @@ def main(no_grad=False, reuse=False):
                         loss.backward()
                         optimizer.step()
 
-                    print(torch.sum(output)) # THIS IS IMPORTANT | don't remove it. Otherwise the lazy execution will mess up the time estimate
+                    # THIS IS IMPORTANT | don't remove it. Otherwise the lazy execution will mess up the time estimate
+                    print(torch.sum(output))
                     it_took = time.time() - t1
                     timing_array.append(it_took)
                     print("Took", it_took)
-
 
                 if use_op not in results.keys():
                     results[use_op] = {}
                 if n_nodes not in results[use_op].keys():
                     results[use_op][n_nodes] = np.mean(timing_array[1:])
-        pickle.dump(results, open('gravnet_perf%s.pkl'%('_no_grad' if no_grad else ''), 'wb'))
+        pickle.dump(results, open('gravnet_perf%s.pkl' %
+                    ('_no_grad' if no_grad else ''), 'wb'))
 
-    results = pickle.load(open('gravnet_perf%s.pkl'%('_no_grad' if no_grad else ''), 'rb'))
+    results = pickle.load(open('gravnet_perf%s.pkl' %
+                          ('_no_grad' if no_grad else ''), 'rb'))
 
     # Create a single figure and axis (1 row, 1 column)
     fig, ax = plt.subplots(figsize=(8, 6))
 
     # Plot the results for Model A
-    ax.plot(n_nodes_test, list(results["torch-geometric"].values()), marker='o', label="torch-geometric")
+    ax.plot(n_nodes_test, list(
+        results["torch-geometric"].values()), marker='o', label="torch-geometric")
 
     # Plot the results for Model B
-    ax.plot(n_nodes_test, list(results["custom"].values()), marker='s', label="custom", color='orange')
+    ax.plot(n_nodes_test, list(results["custom"].values(
+    )), marker='s', label="custom", color='orange')
 
     # Set titles and labels
     ax.set_title('Timing Comparison')
@@ -182,7 +191,8 @@ def main(no_grad=False, reuse=False):
 
     # Adjust layout to make the plot look clean
     plt.tight_layout()
-    plt.savefig('../plots/gravnet_time_perf%s.pdf'%('_no_grad' if no_grad else ''))
+    plt.savefig('../plots/gravnet_time_perf%s.pdf' %
+                ('_no_grad' if no_grad else ''))
     plt.close(fig)
 
 

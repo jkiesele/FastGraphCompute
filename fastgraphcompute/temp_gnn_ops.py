@@ -5,11 +5,26 @@ from typing import Tuple
 from . import binned_select_knn
 from . import select_with_default
 
+def replace_flat_bin_idx(dim_bin_idx, n_bins_tensor):
+    relevant = dim_bin_idx[:, 1:]
+    strides = torch.cumprod(
+        torch.cat([
+            torch.ones(1, dtype=n_bins_tensor.dtype, device=n_bins_tensor.device),
+            n_bins_tensor[:-1]
+        ]),
+        dim=0
+    )
+    new_flat_idx = (relevant * strides).sum(dim=1)
+
+    dim_bin_idx[:, 0] = new_flat_idx
+    return dim_bin_idx
+
+
 # @torch.jit.script
 class GravNetOp(torch.nn.Module):
     """
-    GravNetOp implements a single layer of the GravNet algorithm [arxiv:1902.07987], which 
-    is designed to learn local graph structures based on learned spatial coordinates. 
+    GravNetOp implements a single layer of the GravNet algorithm [arxiv:1902.07987], which
+    is designed to learn local graph structures based on learned spatial coordinates.
     It combines both distance-based aggregation and feature propagation using message passing.
 
     Args:
@@ -45,7 +60,7 @@ class GravNetOp(torch.nn.Module):
                  k,
                  output_activation=torch.nn.ReLU(),
                  optimization_arguments: dict = {}):
-        
+
         super(GravNetOp, self).__init__()
 
         self.k = k
@@ -74,17 +89,79 @@ class GravNetOp(torch.nn.Module):
         Returns:
             torch.Tensor: Output feature tensor of shape (B, output_dim).
         """
-        
+
         # Step 1: Transform input features into learned spatial coordinates
         space = self.space_transformations(x)  # B x space_dim
-        
+        #print(space)
+
         # Step 2: Transform input features into propagation features
         propagate = self.propagate_transformations(x)  # B x propagate_dimensions
-        
+
         # Step 3: Determine the k-nearest neighbors based on the learned space
         # neighbor_idx: Indices of k-nearest neighbors
         # distsq: Squared distances to k-nearest neighbors
-        neighbor_idx, distsq = binned_select_knn(self.k, space.contiguous(), row_splits) #, **self.optimization_arguments)
+        # neighbor_idx: Indices of k-nearest neighbors
+        # distsq: Squared distances to k-nearest neighbors
+        n_bins = 10
+        bin_width = 0.5
+        K=50
+        device = space.device
+        bin_dim = min(space.shape[1],5)
+        n_bins_tensor = torch.tensor([n_bins] * bin_dim, dtype=torch.int32, device=device)
+        bin_width_tensor = torch.tensor([bin_width], dtype=torch.float32, device=device)
+
+        if device == torch.device('cpu'):
+            coord = space
+            rs = row_splits
+            bw = bin_width_tensor
+            nb = n_bins_tensor
+            bin_idx, flat_bin_idx, bin_out, _, _ = torch.ops.bin_by_coordinates_cpu.bin_by_coordinates_cpu(coord, rs, bw, nb, True, False)
+
+        else:
+            coord = space.to("cuda")
+            rs = row_splits.to("cuda")
+            bw = bin_width_tensor.to("cuda")
+            nb = n_bins_tensor.to("cuda")
+            bin_idx, flat_bin_idx, bin_out, _, _ = torch.ops.bin_by_coordinates_cuda.bin_by_coordinates(coord, rs, bw, nb, True, False)
+
+
+
+        direction = torch.zeros_like(space[:, :bin_dim], dtype=torch.int32)
+
+        n_bins_total = torch.prod(n_bins_tensor).item()
+        dim_bin_idx = replace_flat_bin_idx(bin_idx, n_bins_tensor)
+        bin_idx_global = dim_bin_idx[:, 0]
+
+        split_ids = torch.empty(dim_bin_idx.shape[0], dtype=torch.int32)
+        for i in range(len(row_splits) - 1):
+            start, end = row_splits[i], row_splits[i + 1]
+            split_ids[start:end] = i
+        dim_bin_idx[:, 0] = split_ids
+
+        bin_idx_global_sorted, sort_idx = torch.sort(bin_idx_global)
+        bin_boundaries = torch.searchsorted(
+            bin_idx_global_sorted,
+            torch.arange(n_bins_total + 1, device=flat_bin_idx.device, dtype=flat_bin_idx.dtype)
+        ).to(torch.int32)
+
+        #coord = coord[sort_idx]
+        #dim_bin_idx=dim_bin_idx[sort_idx]
+        bin_idx_global=bin_idx_global[sort_idx]
+        #direction = direction[sort_idx]
+        bin_width_select=torch.tensor([bin_width] * bin_dim, dtype=torch.float32, device=device)
+
+        neighbor_idx, distsq = binned_select_knn(
+            coord,
+            bin_idx_global,
+            dim_bin_idx,
+            bin_boundaries,
+            nb,
+            bin_width_select,
+            direction,
+            False,
+            False,
+            K
+        )
 
         # Step 4: Compute weights based on distances (using a Gaussian kernel)
         weights = torch.exp(-10. * distsq)  # B x K
