@@ -77,6 +77,34 @@ row_splits = torch.tensor([0, 18, 32], dtype=torch.int32)
 L_att, L_rep, L_beta, payload_scaling, _ = loss_fn(beta, coords, asso_idx, row_splits)
 ```
 
+### Torch Geometric Utilities
+The module `fastgraphcompute/torch_geometric_interface.py` provides functions that convert between the
+`row_splits` representation used by FastGraphCompute and PyTorch Geometric's `batch` tensors.
+
+#### Example
+```python
+import torch
+from fastgraphcompute.torch_geometric_interface import (
+    row_splits_from_strict_batch,
+    strict_batch_from_row_splits,
+)
+
+batch = torch.tensor([0, 0, 0, 1, 1, 2, 2, 2], dtype=torch.int64)
+row_splits = row_splits_from_strict_batch(batch)
+assert torch.equal(strict_batch_from_row_splits(row_splits), batch)
+```
+
+### Low-Level Extensions
+FastGraphCompute bundles several custom C++/CUDA extensions that expose high-performance kernels to PyTorch:
+
+- `bin_by_coordinates` assigns points to spatial bins for efficient neighborhood queries.
+- `binned_select_knn` performs k-nearest-neighbour searches using the binning scheme.
+- `index_replacer` substitutes indices in tensors, useful for manipulating graph structures.
+
+These extensions compile automatically during installation and are accessible via the
+`fastgraphcompute.extensions` namespace.
+
+
 
 ## Development Guide
 

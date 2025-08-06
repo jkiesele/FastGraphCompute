@@ -36,7 +36,7 @@ def row_splits_from_strict_batch(batch):
     """
     # Detect where the batch changes
     change_indices = torch.nonzero(
-        batch[1:] != batch[:-1], as_tuple=False).squeeze()
+        batch[1:] != batch[:-1], as_tuple=False).flatten()
 
     # Append the start (0) and end (number of nodes) to row splits
     return torch.cat([torch.tensor([0], dtype=torch.int64), change_indices + 1, torch.tensor([len(batch)], dtype=torch.int64)]).to(torch.int64)
