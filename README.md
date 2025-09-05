@@ -121,6 +121,7 @@ These extensions compile automatically during installation and are accessible vi
    pip install torch==2.5.0 torchvision==0.20.0 torchaudio==2.5.0 --index-url https://download.pytorch.org/whl/cu121
    pip install cmake setuptools wheel torch_geometric pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv
    ```
+   Note: if needed, run `pip install torch_geometric` before running the second line
 
 3. Compile extensions:
    ```bash
