@@ -7,7 +7,7 @@ Usage:
 
 Defaults:
     --root   .
-    --out    merged_repo.py
+    --out    fastgraphcompute_merged_repo.py
     --folder fastgraphcompute
 
 Behavior:
@@ -63,7 +63,7 @@ def collect_files(repo_root: str, folder: str):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--root', default='.', help='Repository root (default: .)')
-    ap.add_argument('--out', default='merged_repo.py', help='Output merged file path')
+    ap.add_argument('--out', default='fastgraphcompute_merged_repo.py', help='Output merged file path')
     ap.add_argument('--folder', default='fastgraphcompute', help='Subfolder to include (default: fastgraphcompute)')
     args = ap.parse_args()
 
