@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-merge_repo.py — Merge Python source files from the 'src' subfolder into a single file.
+merge_repo.py — Merge Python source files from the 'fastgraphcompute' subfolder into a single file.
 
 Usage:
-    python merge_repo.py [--root <repo_root>] [--out <merged_file>] [--folder src]
+    python merge_repo.py [--root <repo_root>] [--out <merged_file>] [--folder fastgraphcompute]
 
 Defaults:
     --root   .
     --out    merged_repo.py
-    --folder src
+    --folder fastgraphcompute
 
 Behavior:
 - Recursively collects *.py files under the given subfolder (relative to --root).
@@ -64,7 +64,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--root', default='.', help='Repository root (default: .)')
     ap.add_argument('--out', default='merged_repo.py', help='Output merged file path')
-    ap.add_argument('--folder', default='src', help='Subfolder to include (default: src)')
+    ap.add_argument('--folder', default='fastgraphcompute', help='Subfolder to include (default: fastgraphcompute)')
     args = ap.parse_args()
 
     repo_root = os.path.abspath(args.root)
