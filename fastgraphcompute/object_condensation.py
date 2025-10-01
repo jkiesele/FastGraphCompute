@@ -128,7 +128,9 @@ class ObjectCondensation(torch.nn.Module):
         return x
 
     def _norm_payload(self, payload_loss_k_m, M):
-        return payload_loss_k_m / (torch.sum(payload_loss_k_m, dim=1, keepdim=True) + 1e-12)
+        # clip payload_loss_k_m to avoid NaNs, do not add an epsilon, as this would bias the result
+        payload_loss_k_m = torch.clamp(payload_loss_k_m, min=1e-6)
+        return payload_loss_k_m / (torch.sum(payload_loss_k_m, dim=1, keepdim=True))
 
     def _norm_repulsive_fixed(self, rep_loss, N_k):
         # rep_loss as K x 1, N_prs as K x 1
