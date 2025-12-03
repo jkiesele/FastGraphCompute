@@ -50,7 +50,8 @@ MAX_DATASET_SIZE = 5_000_000  # Cap all analyses at 5M data points
 # - "process": Process CSV files from directories and create _cleaned.csv files
 # - "use_existing": Use existing _cleaned.csv files (skip processing)
 # - "merge": Merge all _cleaned.csv files into master_data.csv with all algorithms combined
-PROCESSING_MODE = "process"  # Options: "process", "use_existing", "merge"
+# - "load_master": Load master_data.csv directly and create plots
+PROCESSING_MODE = "load_master"  # Options: "process", "use_existing", "merge", "load_master"
 
 
 def combine_algorithm_files(algorithm_dir: str, algorithm_name: str, time_column: str) -> pd.DataFrame:
@@ -177,7 +178,12 @@ def load_and_prepare_data() -> pd.DataFrame:
     print("Loading performance data...")
 
     # Check if master_data.csv exists (from merge mode)
-    if os.path.exists('master_data.csv'):
+    # If in load_master mode, we MUST use master_data.csv
+    if os.path.exists('master_data.csv') or PROCESSING_MODE == "load_master":
+        if not os.path.exists('master_data.csv'):
+            print("Error: master_data.csv not found (required for load_master mode)")
+            return pd.DataFrame()
+
         print("Found master_data.csv, loading directly...")
         unified_data = pd.read_csv('master_data.csv')
 
@@ -899,7 +905,7 @@ def create_plots():
     print("\n6. Creating FGC speedup analysis: D=3, K=40, varying sizes (logarithmic y-axis)...")
     fig6 = plot_fgc_speedup_analysis(
         data, 'sizes', dimension=3, k=40, custom_title="FastGraph Speedup at K=40, D=3", log_y=True)
-    save_figure(fig6, 'plots/fgc_speedup_d3_k40_log_y.png', 1200, 500)
+    save_figure(fig6, 'plots/fgc_speedup_d3_k40_log_y.png', 800, 500)
 
     print(f"\n" + "="*60)
     print("Plot Generation Complete! Generated files:")
@@ -974,6 +980,10 @@ def main():
         print("\nMerge complete. Creating plots from master_data.csv...")
 
         # Create plots using the merged master_data.csv
+        create_plots()
+
+    elif PROCESSING_MODE == "load_master":
+        print("Loading master_data.csv and creating plots...")
         create_plots()
 
     else:  # "use_existing"
