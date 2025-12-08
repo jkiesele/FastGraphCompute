@@ -24,7 +24,7 @@ def binned_select_knn(K: int,
         K (int): Number of nearest neighbors.
         coords (torch.Tensor): Input coordinates for points.
         row_splits (torch.Tensor): Row splits following ragged tensor convention.
-        direction (torch.Tensor, optional): Direction constraint for neighbors.
+        direction (torch.Tensor, optional): Direction constraint for neighbors. 0: can only be neighbour, 1: can only have neighbour, 2: neither
         n_bins (torch.Tensor, optional): Number of bins per dimension.
         max_bin_dims (int, optional): Maximum number of bin dimensions.
         torch_compatible_indices (bool, optional): Compatibility flag for PyTorch behavior.
