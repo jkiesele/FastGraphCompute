@@ -4,6 +4,7 @@
 #include "helpers.h"
 #include "cuda_helpers.h"
 #include <c10/macros/Macros.h>
+#include <ATen/cuda/CUDAContext.h>
 
 #define C10_CUDA_KERNEL_LAUNCH_CHECK() {                         \
     cudaError_t err = cudaGetLastError();                        \
@@ -100,9 +101,12 @@ torch::Tensor binned_select_knn_grad_cuda_fn(
     const auto K = indices.size(1);
     auto options_float = torch::TensorOptions().dtype(torch::kFloat32).device(coordinates.device());
     torch::Tensor grad_coords = torch::empty({n_vert, n_coords}, options_float);
+
     grid_and_block gb(n_vert,256,n_coords,4);
+    auto stream = at::cuda::getCurrentCUDAStream(coordinates.device().index());
+
     if (indices.scalar_type() == torch::kInt64) {
-        select_knn_grad_selfloop_kernel<int64_t><<<gb.grid(),gb.block()>>>(
+        select_knn_grad_selfloop_kernel<int64_t><<<gb.grid(),gb.block(), 0, stream.stream()>>>(
             grad_distances.data_ptr<float>(),
             indices.data_ptr<int64_t>(),
             distances.data_ptr<float>(),
@@ -113,9 +117,8 @@ torch::Tensor binned_select_knn_grad_cuda_fn(
             n_coords
         );
         C10_CUDA_KERNEL_LAUNCH_CHECK();
-        cudaDeviceSynchronize();
-        C10_CUDA_KERNEL_LAUNCH_CHECK();
-        select_knn_grad_neighloop_kernel<int64_t><<<gb.grid(),gb.block()>>>(
+        
+        select_knn_grad_neighloop_kernel<int64_t><<<gb.grid(),gb.block(), 0, stream.stream()>>>(
             grad_distances.data_ptr<float>(),
             indices.data_ptr<int64_t>(),
             distances.data_ptr<float>(),
@@ -126,10 +129,9 @@ torch::Tensor binned_select_knn_grad_cuda_fn(
             n_coords
         );
         C10_CUDA_KERNEL_LAUNCH_CHECK();
-        cudaDeviceSynchronize();
-        C10_CUDA_KERNEL_LAUNCH_CHECK();
+        
     } else if (indices.scalar_type() == torch::kInt64) {
-        select_knn_grad_selfloop_kernel<int64_t><<<gb.grid(),gb.block()>>>(
+        select_knn_grad_selfloop_kernel<int64_t><<<gb.grid(),gb.block(), 0, stream.stream()>>>(
             grad_distances.data_ptr<float>(),
             indices.data_ptr<int64_t>(),
             distances.data_ptr<float>(),
@@ -140,9 +142,8 @@ torch::Tensor binned_select_knn_grad_cuda_fn(
             n_coords
         );
         C10_CUDA_KERNEL_LAUNCH_CHECK();
-        cudaDeviceSynchronize();
-        C10_CUDA_KERNEL_LAUNCH_CHECK();
-        select_knn_grad_neighloop_kernel<int64_t><<<gb.grid(),gb.block()>>>(
+        
+        select_knn_grad_neighloop_kernel<int64_t><<<gb.grid(),gb.block(), 0, stream.stream()>>>(
             grad_distances.data_ptr<float>(),
             indices.data_ptr<int64_t>(),
             distances.data_ptr<float>(),
@@ -153,8 +154,7 @@ torch::Tensor binned_select_knn_grad_cuda_fn(
             n_coords
         );
         C10_CUDA_KERNEL_LAUNCH_CHECK();
-        cudaDeviceSynchronize();
-        C10_CUDA_KERNEL_LAUNCH_CHECK();
+        
     }
     return grad_coords;
 }

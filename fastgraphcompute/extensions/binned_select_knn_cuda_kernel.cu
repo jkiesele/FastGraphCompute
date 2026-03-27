@@ -6,6 +6,7 @@
 #include "helpers.h"
 #include <vector>
 #include <c10/macros/Macros.h>
+#include <ATen/cuda/CUDAContext.h>
 
 #define C10_CUDA_KERNEL_LAUNCH_CHECK() {                         \
     cudaError_t err = cudaGetLastError();                        \
@@ -272,20 +273,20 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
 
     grid_and_block gb_set_def(n_vert,256,K,4);
     grid_and_block gb(n_vert,512);
+    auto stream = at::cuda::getCurrentCUDAStream(coordinates.device().index());
 
-    setDefaults<<<gb_set_def.grid(),gb_set_def.block()>>>(indices.data_ptr<int64_t>(), distances.data_ptr<float>(), tf_compat, n_vert, K);
+    setDefaults<<<gb_set_def.grid(),gb_set_def.block(), 0, stream.stream()>>>(indices.data_ptr<int64_t>(), distances.data_ptr<float>(), tf_compat, n_vert, K);
     
     // check direction
     
 
     C10_CUDA_KERNEL_LAUNCH_CHECK();
 
-    cudaDeviceSynchronize();
     
     if (bin_idx.scalar_type() == torch::kInt64) {
 
         if (n_bin_dims == 2)
-            select_knn_kernel<2, int64_t><<<gb.grid(),gb.block()>>>(
+            select_knn_kernel<2, int64_t><<<gb.grid(),gb.block(), 0, stream.stream()>>>(
                 coordinates.data_ptr<float>(), bin_idx.data_ptr<int64_t>(),
                 direction.data_ptr<int64_t>(), dim_bin_idx.data_ptr<int64_t>(),
                 bin_boundaries.data_ptr<int64_t>(), n_bins.data_ptr<int64_t>(),
@@ -293,7 +294,7 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
                 distances.data_ptr<float>(), n_vert, K, n_coords, n_bin_dims, n_bboundaries, use_direction);
         
         else if (n_bin_dims == 3)
-            select_knn_kernel<3, int64_t><<<gb.grid(),gb.block()>>>(
+            select_knn_kernel<3, int64_t><<<gb.grid(),gb.block(), 0, stream.stream()>>>(
                 coordinates.data_ptr<float>(), bin_idx.data_ptr<int64_t>(),
                 direction.data_ptr<int64_t>(), dim_bin_idx.data_ptr<int64_t>(),
                 bin_boundaries.data_ptr<int64_t>(), n_bins.data_ptr<int64_t>(),
@@ -301,7 +302,7 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
                 distances.data_ptr<float>(), n_vert, K, n_coords, n_bin_dims, n_bboundaries, use_direction);
 
         else if (n_bin_dims == 4)
-            select_knn_kernel<4, int64_t><<<gb.grid(),gb.block()>>>(
+            select_knn_kernel<4, int64_t><<<gb.grid(),gb.block(), 0, stream.stream()>>>(
                 coordinates.data_ptr<float>(), bin_idx.data_ptr<int64_t>(),
                 direction.data_ptr<int64_t>(), dim_bin_idx.data_ptr<int64_t>(),
                 bin_boundaries.data_ptr<int64_t>(), n_bins.data_ptr<int64_t>(),
@@ -309,7 +310,7 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
                 distances.data_ptr<float>(), n_vert, K, n_coords, n_bin_dims, n_bboundaries, use_direction);
 
         else if (n_bin_dims == 5)
-            select_knn_kernel<5, int64_t><<<gb.grid(),gb.block()>>>(
+            select_knn_kernel<5, int64_t><<<gb.grid(),gb.block(), 0, stream.stream()>>>(
                 coordinates.data_ptr<float>(), bin_idx.data_ptr<int64_t>(),
                 direction.data_ptr<int64_t>(), dim_bin_idx.data_ptr<int64_t>(),
                 bin_boundaries.data_ptr<int64_t>(), n_bins.data_ptr<int64_t>(),
@@ -323,7 +324,7 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
     } else if (bin_idx.scalar_type() == torch::kInt64) {
 
         if (n_bin_dims == 2)
-            select_knn_kernel<2, int64_t><<<gb.grid(),gb.block()>>>(
+            select_knn_kernel<2, int64_t><<<gb.grid(),gb.block(), 0, stream.stream()>>>(
                 coordinates.data_ptr<float>(), bin_idx.data_ptr<int64_t>(),
                 direction.data_ptr<int64_t>(), dim_bin_idx.data_ptr<int64_t>(),
                 bin_boundaries.data_ptr<int64_t>(), n_bins.data_ptr<int64_t>(),
@@ -331,7 +332,7 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
                 distances.data_ptr<float>(), n_vert, K, n_coords, n_bin_dims, n_bboundaries, use_direction);
        
         else if (n_bin_dims == 3)
-            select_knn_kernel<3, int64_t><<<gb.grid(),gb.block()>>>(
+            select_knn_kernel<3, int64_t><<<gb.grid(),gb.block(), 0, stream.stream()>>>(
                 coordinates.data_ptr<float>(), bin_idx.data_ptr<int64_t>(),
                 direction.data_ptr<int64_t>(), dim_bin_idx.data_ptr<int64_t>(),
                 bin_boundaries.data_ptr<int64_t>(), n_bins.data_ptr<int64_t>(),
@@ -339,7 +340,7 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
                 distances.data_ptr<float>(), n_vert, K, n_coords, n_bin_dims, n_bboundaries, use_direction);
 
         else if (n_bin_dims == 4)
-            select_knn_kernel<4, int64_t><<<gb.grid(),gb.block()>>>(
+            select_knn_kernel<4, int64_t><<<gb.grid(),gb.block(), 0, stream.stream()>>>(
                 coordinates.data_ptr<float>(), bin_idx.data_ptr<int64_t>(),
                 direction.data_ptr<int64_t>(), dim_bin_idx.data_ptr<int64_t>(),
                 bin_boundaries.data_ptr<int64_t>(), n_bins.data_ptr<int64_t>(),
@@ -347,7 +348,7 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
                 distances.data_ptr<float>(), n_vert, K, n_coords, n_bin_dims, n_bboundaries, use_direction);
 
         else if (n_bin_dims == 5)
-            select_knn_kernel<5, int64_t><<<gb.grid(),gb.block()>>>(
+            select_knn_kernel<5, int64_t><<<gb.grid(),gb.block(), 0, stream.stream()>>>(
                 coordinates.data_ptr<float>(), bin_idx.data_ptr<int64_t>(),
                 direction.data_ptr<int64_t>(), dim_bin_idx.data_ptr<int64_t>(),
                 bin_boundaries.data_ptr<int64_t>(), n_bins.data_ptr<int64_t>(),

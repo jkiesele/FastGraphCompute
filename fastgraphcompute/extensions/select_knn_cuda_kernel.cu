@@ -2,6 +2,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <vector>
+#include <ATen/cuda/CUDAContext.h>
 
 #define CHECK_CUDA(x) TORCH_CHECK(x.device().is_cuda(), #x " must be a CUDA tensor")
 #define I2D(i,j,Nj) j + Nj*i
@@ -159,17 +160,19 @@ std::tuple<torch::Tensor, torch::Tensor> select_knn_cuda_fn(
     dim3 block(256, 4);
     // Ensure enough blocks in the grid over these dims by rounding up
     dim3 grid((n_vert+block.x-1)/block.x, (n_neigh+block.y-1)/block.y);
+    auto stream = at::cuda::getCurrentCUDAStream(coords.device().index());
+
 
     AT_DISPATCH_FLOATING_TYPES(coords.scalar_type(), "set_defaults", ([&] {
-        set_defaults <scalar_t> <<<grid, block>>> (
+        set_defaults <scalar_t> <<<grid, block, 0, stream.stream()>>> (
             output_dist_tensor.data_ptr<scalar_t>(),
             output_idx_tensor.data_ptr<int64_t>(),
             n_vert,
             n_neigh);
     }));
 
-    TORCH_CHECK(cudaGetLastError() == cudaSuccess, "CUDA error in cudaMemcpy operation");
-
+    C10_CUDA_KERNEL_LAUNCH_CHECK();
+    
     std::vector<int64_t> cpu_rowsplits(n_rs);
     cudaMemcpy(&cpu_rowsplits.at(0), row_splits.data_ptr<int64_t>(), n_rs * sizeof(int64_t), cudaMemcpyDeviceToHost);
     TORCH_CHECK(cudaGetLastError() == cudaSuccess, "CUDA error in cudaMemcpy operation");
@@ -183,7 +186,7 @@ std::tuple<torch::Tensor, torch::Tensor> select_knn_cuda_fn(
         n_blocks = (nvert_rs + block_size - 1) / block_size;
 
         AT_DISPATCH_FLOATING_TYPES(coords.scalar_type(), "select_knn_kernel", ([&] {
-            select_knn_kernel <scalar_t> <<<n_blocks, block_size>>> (
+            select_knn_kernel <scalar_t> <<<n_blocks, block_size, 0, stream.stream()>>> (
                     coords.data_ptr<scalar_t>(),
                     row_splits.data_ptr<int64_t>(),
                     mask.data_ptr<int64_t>(),
@@ -197,7 +200,7 @@ std::tuple<torch::Tensor, torch::Tensor> select_knn_cuda_fn(
                     j_rs,
                     max_radius);
             }));
-        TORCH_CHECK(cudaGetLastError() == cudaSuccess, "CUDA error in cudaMemcpy operation");
+        C10_CUDA_KERNEL_LAUNCH_CHECK();
     }
     
     return std::make_tuple(output_idx_tensor, output_dist_tensor);
