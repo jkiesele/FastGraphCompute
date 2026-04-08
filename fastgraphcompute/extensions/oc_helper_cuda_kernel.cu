@@ -14,6 +14,7 @@ jkiesele
 #include <cuda_runtime.h>
 #include "cuda_helpers.h"
 #include <ATen/cuda/CUDAContext.h>
+#include <c10/cuda/CUDAGuard.h>
 
 template <typename T>
 __global__
@@ -158,6 +159,8 @@ std::tuple<torch::Tensor, torch::Tensor> oc_helper_cuda_fn(
     bool calc_m_not) {
 
     check_all_inputs(asso_idx, unique_idx, unique_rs_asso, rs, max_n_unique_over_splits, max_n_in_splits);
+
+    c10::cuda::CUDAGuard guard(asso_idx.device());
 
     const auto n_vert = asso_idx.size(0);
     const auto n_unique = unique_idx.size(0);

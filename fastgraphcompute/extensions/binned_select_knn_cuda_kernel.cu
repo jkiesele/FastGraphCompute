@@ -7,6 +7,7 @@
 #include <vector>
 #include <c10/macros/Macros.h>
 #include <ATen/cuda/CUDAContext.h>
+#include <c10/cuda/CUDAGuard.h>
 
 #define C10_CUDA_KERNEL_LAUNCH_CHECK() {                         \
     cudaError_t err = cudaGetLastError();                        \
@@ -260,6 +261,9 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
     bool use_direction,
     int64_t K
 ) {
+
+    c10::cuda::CUDAGuard guard(coordinates.device());
+
     const auto n_vert = coordinates.size(0);
     const auto n_coords = coordinates.size(1);
     const auto n_bboundaries = bin_boundaries.size(0);
