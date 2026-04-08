@@ -5,6 +5,7 @@
 #include "cuda_helpers.h"
 #include "helpers.h"
 #include <c10/macros/Macros.h>
+#include <ATen/cuda/CUDAContext.h>
 
 #define CHECK_CUDA(x) TORCH_CHECK(x.device().is_cuda(), #x " must be a CUDA tensor")
 #define CHECK_CONTIGUOUS(x) TORCH_CHECK(x.is_contiguous(), #x " must be contiguous")
@@ -144,8 +145,9 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> bin_by_coordinates_cuda_
     auto output_flat_assigned_bin_tensor = torch::zeros({ n_vert }, torch::TensorOptions().dtype(torch::kInt64).device(coordinates.device()));
 
     grid_and_block gb(n_vert,512);
+    auto stream = at::cuda::getCurrentCUDAStream(coordinates.device().index());
 
-    calc<<<gb.grid(),gb.block()>>>(
+    calc<<<gb.grid(),gb.block(), 0, stream.stream()>>>(
         coordinates.data_ptr<float>(),
         row_splits.data_ptr<int64_t>(),
         bin_width.data_ptr<float>(),

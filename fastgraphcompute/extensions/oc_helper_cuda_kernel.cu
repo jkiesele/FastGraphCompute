@@ -13,6 +13,7 @@ jkiesele
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "cuda_helpers.h"
+#include <ATen/cuda/CUDAContext.h>
 
 template <typename T>
 __global__
@@ -171,8 +172,9 @@ std::tuple<torch::Tensor, torch::Tensor> oc_helper_cuda_fn(
     torch::Tensor M_not_transposed = torch::empty({n_maxrs, n_unique}, options_int);
 
     grid_and_block gb(n_unique, 512);
+    auto stream = at::cuda::getCurrentCUDAStream(asso_idx.device().index());
 
-    calc_m<int64_t><<<gb.grid(), gb.block()>>>(
+    calc_m<int64_t><<<gb.grid(), gb.block(), 0, stream.stream()>>>(
         asso_idx.data_ptr<int64_t>(),
         unique_idx.data_ptr<int64_t>(),
         unique_rs_asso.data_ptr<int64_t>(),
@@ -186,8 +188,7 @@ std::tuple<torch::Tensor, torch::Tensor> oc_helper_cuda_fn(
         calc_m_not
     );
 
-    cudaDeviceSynchronize();
-    TORCH_CHECK(cudaGetLastError() == cudaSuccess, "CUDA error in kernel execution");
+    C10_CUDA_KERNEL_LAUNCH_CHECK();
 
     torch::Tensor M = M_transposed.transpose(0, 1).contiguous();//ensure contiguous
     torch::Tensor M_not = M_not_transposed.transpose(0, 1).contiguous();

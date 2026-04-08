@@ -1,6 +1,7 @@
 #include <torch/extension.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <ATen/cuda/CUDAContext.h>
 
 #define CHECK_CUDA(x) TORCH_CHECK(x.device().is_cuda(), #x " must be a CUDA tensor")
 
@@ -39,16 +40,16 @@ torch::Tensor index_replacer_cuda_fn(
     const int64_t n_to_be_replaced = to_be_replaced.numel();
     const int64_t threads_per_block = 1024;
     const int64_t num_blocks = (n_to_be_replaced + threads_per_block - 1) / threads_per_block;
+    auto stream = at::cuda::getCurrentCUDAStream(to_be_replaced.device().index());
 
-    index_replacer_kernel<<<num_blocks, threads_per_block>>>(
+    index_replacer_kernel<<<num_blocks, threads_per_block, 0, stream.stream()>>>(
         to_be_replaced.data_ptr<int64_t>(),
         replacements.data_ptr<int64_t>(),
         replaced.data_ptr<int64_t>(),
         n_to_be_replaced,
         replacements.numel()
     );
-
-    cudaDeviceSynchronize();
+    C10_CUDA_KERNEL_LAUNCH_CHECK();
 
     return replaced;
 }
