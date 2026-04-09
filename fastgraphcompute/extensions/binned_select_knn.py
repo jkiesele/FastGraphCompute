@@ -92,3 +92,54 @@ def binned_select_knn(K: int,
         coords, row_splits, K, direction, n_bins, max_bin_dims, torch_compatible_indices)
 
     return idx, dist
+
+
+
+@torch.jit.script
+def torch_binned_select_knn(K: int,
+                      coords: torch.Tensor,
+                      row_splits: torch.Tensor,
+                      direction: Optional[torch.Tensor] = None,
+                      n_bins: Optional[torch.Tensor] = None,
+                      max_bin_dims: int = 3,
+                      torch_compatible_indices: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
+    
+    """
+    The same op as above but in pure torch, no additional kernels, for testing and debugging purposes. 
+    This is not optimized and should not be used in production.
+    Uses a simple brute-force approach to find K nearest neighbors within bins defined by the input coordinates.
+    It loops over row splits to process each batch of points, applies binning to group points into bins, and then computes distances to find the K nearest neighbors for each point.
+    Includes self references in the neighbor selection, which can be filtered out later if needed.
+    """
+    #does not work with direction, raise if set, the others are just ignored
+    if direction is not None:
+        raise NotImplementedError("Direction constraint is not implemented in the torch version of binned_select_knn.")
+
+    idx_list = []
+    dist_list = []
+    for i in range(len(row_splits) - 1):
+        start, end = row_splits[i].item(), row_splits[i + 1].item()
+        batch_coords = coords[start:end]
+
+        #create a full distance matrix for the batch
+        dist_matrix = torch.cdist(batch_coords, batch_coords)
+        # get the distances and indices of the nearest points
+        k_eff = min(K + 1, end - start)
+        knn_dist, knn_idx = torch.topk(dist_matrix, k_eff, largest=False) 
+        # outputs include 'self'
+        #make sure knn_idx and knn_dist are of shape (num_points_in_batch, K), fill empty neighbours with an index of -1 and a distance of 0.
+        #make indices global
+        knn_idx = knn_idx + start
+        if knn_idx.shape[1] < K+1:
+            padding_size = K+1 - knn_idx.shape[1]
+            knn_idx = torch.nn.functional.pad(knn_idx, (0, padding_size), value=-1)
+            knn_dist = torch.nn.functional.pad(knn_dist, (0, padding_size), value=0.0)
+        idx_list.append(knn_idx)  
+        dist_list.append(knn_dist)
+
+    idx = torch.cat(idx_list, dim=0)
+    dist = torch.cat(dist_list, dim=0)
+
+    return idx, dist**2
+
+
