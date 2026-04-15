@@ -139,7 +139,7 @@ def torch_binned_select_knn(K: int,
         batch_coords = coords[start:end]
 
         # create a full distance matrix for the batch
-        dist_matrix = torch.cdist(batch_coords.float(), batch_coords.float())
+        dist_matrix = torch.cdist(batch_coords, batch_coords)
         # get K nearest neighbours (distances and local indices)
         k_eff = min(K, end - start)
         knn_dist, knn_idx = torch.topk(dist_matrix, k_eff, largest=False)
