@@ -105,11 +105,20 @@ def torch_binned_select_knn(K: int,
                       torch_compatible_indices: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
     
     """
-    The same op as above but in pure torch, no additional kernels, for testing and debugging purposes. 
-    This is not optimized and should not be used in production.
-    Uses a simple brute-force approach to find K nearest neighbors within bins defined by the input coordinates.
-    It loops over row splits to process each batch of points, applies binning to group points into bins, and then computes distances to find the K nearest neighbors for each point.
-    Includes self references in the neighbor selection, which can be filtered out later if needed.
+    Pure PyTorch reference implementation of ``binned_select_knn`` for testing and debugging.
+    This version is not optimized and should not be used in production.
+
+    For each batch defined by ``row_splits``, it computes a full pairwise distance matrix
+    with ``torch.cdist`` and then uses ``torch.topk`` to select the nearest neighbors.
+    No spatial binning is performed in this implementation.
+
+    Arguments kept for API compatibility but ignored by this implementation:
+      - ``n_bins``
+      - ``max_bin_dims``
+      - ``torch_compatible_indices``
+
+    ``direction`` is not supported here and will raise ``NotImplementedError`` if provided.
+    The returned neighbors include self references, which can be filtered out later if needed.
     """
     #does not work with direction, raise if set, the others are just ignored
     if direction is not None:
