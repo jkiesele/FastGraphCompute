@@ -92,3 +92,62 @@ def binned_select_knn(K: int,
         coords, row_splits, K, direction, n_bins, max_bin_dims, torch_compatible_indices)
 
     return idx, dist
+
+
+
+@torch.jit.script
+def torch_binned_select_knn(K: int,
+                      coords: torch.Tensor,
+                      row_splits: torch.Tensor,
+                      direction: Optional[torch.Tensor] = None,
+                      n_bins: Optional[torch.Tensor] = None,
+                      max_bin_dims: int = 3,
+                      torch_compatible_indices: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
+    
+    """
+    Pure PyTorch reference implementation of ``binned_select_knn`` for testing and debugging.
+    This version is not optimized and should not be used in production.
+
+    For each batch defined by ``row_splits``, it computes a full pairwise distance matrix
+    with ``torch.cdist`` and then uses ``torch.topk`` to select the nearest neighbors.
+    No spatial binning is performed in this implementation.
+
+    Arguments kept for API compatibility but ignored by this implementation:
+      - ``n_bins``
+      - ``max_bin_dims``
+      - ``torch_compatible_indices``
+
+    ``direction`` is not supported here and will raise ``NotImplementedError`` if provided.
+    The returned neighbors include self references, which can be filtered out later if needed.
+    """
+    #does not work with direction, raise if set, the others are just ignored
+    if direction is not None:
+        raise NotImplementedError("Direction constraint is not implemented in the torch version of binned_select_knn.")
+
+    num_verts = coords.shape[0]
+    # Pre-allocate outputs: invalid neighbor index = -1, distance = 0
+    idx_out = torch.full((num_verts, K), -1, dtype=torch.int64, device=coords.device)
+    dist_out = torch.zeros((num_verts, K), dtype=torch.float32, device=coords.device)
+
+    for i in range(len(row_splits) - 1):
+        start = int(row_splits[i].item())
+        end = int(row_splits[i + 1].item())
+        # skip empty segments to avoid topk(k=0) error
+        if start >= end:
+            continue
+
+        batch_coords = coords[start:end]
+
+        # create a full distance matrix for the batch
+        dist_matrix = torch.cdist(batch_coords, batch_coords)
+        # get K nearest neighbours (distances and local indices)
+        k_eff = min(K, end - start)
+        knn_dist, knn_idx = torch.topk(dist_matrix, k_eff, largest=False)
+
+        # make indices global and store into pre-allocated output
+        idx_out[start:end, :k_eff] = knn_idx + start
+        dist_out[start:end, :k_eff] = knn_dist
+
+    return idx_out, dist_out ** 2
+
+

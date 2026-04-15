@@ -3,6 +3,7 @@
 #include <cuda_runtime.h>
 #include <vector>
 #include <ATen/cuda/CUDAContext.h>
+#include <c10/cuda/CUDAGuard.h>
 
 #define CHECK_CUDA(x) TORCH_CHECK(x.device().is_cuda(), #x " must be a CUDA tensor")
 #define I2D(i,j,Nj) j + Nj*i
@@ -142,6 +143,8 @@ std::tuple<torch::Tensor, torch::Tensor> select_knn_cuda_fn(
     CHECK_CUDA(coords);
     CHECK_CUDA(row_splits);
     CHECK_CUDA(mask);
+
+    c10::cuda::CUDAGuard guard(coords.device());
 
     const auto n_vert = coords.size(0);
     const auto n_coords = coords.size(1);
