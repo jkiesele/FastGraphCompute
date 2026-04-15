@@ -124,31 +124,30 @@ def torch_binned_select_knn(K: int,
     if direction is not None:
         raise NotImplementedError("Direction constraint is not implemented in the torch version of binned_select_knn.")
 
-    idx_list = []
-    dist_list = []
+    num_verts = coords.shape[0]
+    # Pre-allocate outputs: invalid neighbor index = -1, distance = 0
+    idx_out = torch.full((num_verts, K), -1, dtype=torch.int64, device=coords.device)
+    dist_out = torch.zeros((num_verts, K), dtype=torch.float32, device=coords.device)
+
     for i in range(len(row_splits) - 1):
-        start, end = row_splits[i].item(), row_splits[i + 1].item()
+        start = int(row_splits[i].item())
+        end = int(row_splits[i + 1].item())
+        # skip empty segments to avoid topk(k=0) error
+        if start >= end:
+            continue
+
         batch_coords = coords[start:end]
 
-        #create a full distance matrix for the batch
-        dist_matrix = torch.cdist(batch_coords, batch_coords)
-        # get the distances and indices of the nearest points
-        k_eff = min(K + 1, end - start)
-        knn_dist, knn_idx = torch.topk(dist_matrix, k_eff, largest=False) 
-        # outputs include 'self'
-        #make sure knn_idx and knn_dist are of shape (num_points_in_batch, K), fill empty neighbours with an index of -1 and a distance of 0.
-        #make indices global
-        knn_idx = knn_idx + start
-        if knn_idx.shape[1] < K+1:
-            padding_size = K+1 - knn_idx.shape[1]
-            knn_idx = torch.nn.functional.pad(knn_idx, (0, padding_size), value=-1)
-            knn_dist = torch.nn.functional.pad(knn_dist, (0, padding_size), value=0.0)
-        idx_list.append(knn_idx)  
-        dist_list.append(knn_dist)
+        # create a full distance matrix for the batch
+        dist_matrix = torch.cdist(batch_coords.float(), batch_coords.float())
+        # get K nearest neighbours (distances and local indices)
+        k_eff = min(K, end - start)
+        knn_dist, knn_idx = torch.topk(dist_matrix, k_eff, largest=False)
 
-    idx = torch.cat(idx_list, dim=0)
-    dist = torch.cat(dist_list, dim=0)
+        # make indices global and store into pre-allocated output
+        idx_out[start:end, :k_eff] = knn_idx + start
+        dist_out[start:end, :k_eff] = knn_dist
 
-    return idx, dist**2
+    return idx_out, dist_out ** 2
 
 
