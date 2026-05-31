@@ -6,6 +6,7 @@
 #include "helpers.h"
 #include <c10/macros/Macros.h>
 #include <ATen/cuda/CUDAContext.h>
+#include <c10/cuda/CUDAGuard.h>
 
 #define CHECK_CUDA(x) TORCH_CHECK(x.device().is_cuda(), #x " must be a CUDA tensor")
 #define CHECK_CONTIGUOUS(x) TORCH_CHECK(x.is_contiguous(), #x " must be contiguous")
@@ -126,6 +127,8 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> bin_by_coordinates_cuda_
     CHECK_INPUT(row_splits);
     CHECK_INPUT(bin_width);
     CHECK_INPUT(nbins);
+
+    c10::cuda::CUDAGuard guard(coordinates.device());
 
     const auto n_vert = coordinates.size(0);
     const auto n_coords = coordinates.size(1);

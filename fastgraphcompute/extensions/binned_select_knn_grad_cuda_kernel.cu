@@ -5,6 +5,7 @@
 #include "cuda_helpers.h"
 #include <c10/macros/Macros.h>
 #include <ATen/cuda/CUDAContext.h>
+#include <c10/cuda/CUDAGuard.h>
 
 #define C10_CUDA_KERNEL_LAUNCH_CHECK() {                         \
     cudaError_t err = cudaGetLastError();                        \
@@ -96,6 +97,9 @@ torch::Tensor binned_select_knn_grad_cuda_fn(
     CHECK_INPUT(indices);
     CHECK_INPUT(distances);
     CHECK_INPUT(coordinates);
+
+    c10::cuda::CUDAGuard guard(coordinates.device());
+
     const auto n_vert = coordinates.size(0);
     const auto n_coords = coordinates.size(1);
     const auto K = indices.size(1);

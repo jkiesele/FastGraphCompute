@@ -7,6 +7,7 @@
 #include <vector>
 #include <c10/macros/Macros.h>
 #include <ATen/cuda/CUDAContext.h>
+#include <c10/cuda/CUDAGuard.h>
 
 #define C10_CUDA_KERNEL_LAUNCH_CHECK() {                         \
     cudaError_t err = cudaGetLastError();                        \
@@ -260,6 +261,22 @@ std::tuple<torch::Tensor, torch::Tensor> binned_select_knn_cuda_fn(
     bool use_direction,
     int64_t K
 ) {
+
+    TORCH_CHECK(coordinates.is_cuda(), "coordinates must be a CUDA tensor");
+    TORCH_CHECK(bin_idx.is_cuda(), "bin_idx must be a CUDA tensor");
+    TORCH_CHECK(dim_bin_idx.is_cuda(), "dim_bin_idx must be a CUDA tensor");
+    TORCH_CHECK(bin_boundaries.is_cuda(), "bin_boundaries must be a CUDA tensor");
+    TORCH_CHECK(n_bins.is_cuda(), "n_bins must be a CUDA tensor");
+    TORCH_CHECK(bin_width.is_cuda(), "bin_width must be a CUDA tensor");
+    TORCH_CHECK(direction.is_cuda(), "direction must be a CUDA tensor");
+    TORCH_CHECK(bin_idx.device() == coordinates.device(), "bin_idx must be on the same device as coordinates");
+    TORCH_CHECK(dim_bin_idx.device() == coordinates.device(), "dim_bin_idx must be on the same device as coordinates");
+    TORCH_CHECK(bin_boundaries.device() == coordinates.device(), "bin_boundaries must be on the same device as coordinates");
+    TORCH_CHECK(n_bins.device() == coordinates.device(), "n_bins must be on the same device as coordinates");
+    TORCH_CHECK(bin_width.device() == coordinates.device(), "bin_width must be on the same device as coordinates");
+    TORCH_CHECK(direction.device() == coordinates.device(), "direction must be on the same device as coordinates");
+    c10::cuda::CUDAGuard guard(coordinates.device());
+
     const auto n_vert = coordinates.size(0);
     const auto n_coords = coordinates.size(1);
     const auto n_bboundaries = bin_boundaries.size(0);
