@@ -1,4 +1,5 @@
 import torch
+from ._torchscript import script
 import os.path as osp
 
 # Load the shared libraries
@@ -6,7 +7,7 @@ torch.ops.load_library(osp.join(osp.dirname(
     osp.realpath(__file__)), 'binned_knn_ops.so'))
 
 
-@torch.jit.script
+@script
 def index_replacer_torch(to_be_replaced: torch.Tensor, replacements: torch.Tensor) -> torch.Tensor:
     """
     Replace values in `to_be_replaced` using the `replacements` tensor.
@@ -37,7 +38,7 @@ def index_replacer_torch(to_be_replaced: torch.Tensor, replacements: torch.Tenso
     return replaced
 
 
-@torch.jit.script
+@script
 def index_replacer(to_be_replaced: torch.Tensor, replacements: torch.Tensor) -> torch.Tensor:
     """
     Replace values in `to_be_replaced` using the `replacements` tensor.

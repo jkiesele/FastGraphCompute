@@ -1,4 +1,5 @@
 import torch
+from ._torchscript import script
 # import fastgraphcompute.extensions
 import os.path as osp
 
@@ -15,7 +16,7 @@ if torch.cuda.is_available():
 max_same_valued_entries_per_row_split = torch.ops.oc_helper_helper.max_same_valued_entries_per_row_split
 
 
-@torch.jit.script
+@script
 def _helper_inputs(truth_indices, row_splits, filter_negative: bool = True):
     """
     Processes the `truth_indices` tensor by splitting it according to `row_splits`,
@@ -144,12 +145,12 @@ def _helper_inputs(truth_indices, row_splits, filter_negative: bool = True):
 # for jit
 
 
-@torch.jit.script
+@script
 def _helper_inputs_filter(truth_indices, row_splits):
     return _helper_inputs(truth_indices, row_splits, filter_negative=True)
 
 
-@torch.jit.script
+@script
 def oc_helper_matrices(
         truth_idxs: torch.Tensor,
         row_splits: torch.Tensor,
@@ -229,7 +230,7 @@ def oc_helper_matrices(
         return M, M_not, obj_per_split
 
 
-@torch.jit.script
+@script
 def select_with_default(idx: torch.Tensor,
                         feat: torch.Tensor,
                         default_value: float) -> torch.Tensor:

@@ -1,4 +1,5 @@
 import torch
+from ._torchscript import script
 # import fastgraphcompute.extensions
 import os.path as osp
 from .bin_by_coordinates import bin_by_coordinates
@@ -9,7 +10,7 @@ from typing import Optional, Tuple
 torch.ops.load_library(osp.join(osp.dirname(
     osp.realpath(__file__)), 'binned_knn_ops.so'))
 
-@torch.jit.script
+@script
 def binned_select_knn(K: int,
                       coords: torch.Tensor,
                       row_splits: torch.Tensor,
@@ -95,7 +96,7 @@ def binned_select_knn(K: int,
 
 
 
-@torch.jit.script
+@script
 def torch_binned_select_knn(K: int,
                       coords: torch.Tensor,
                       row_splits: torch.Tensor,

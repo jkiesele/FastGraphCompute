@@ -10,8 +10,21 @@ from torch.utils.cpp_extension import CppExtension, CUDAExtension, CUDA_HOME
 
 # check if env variable DEV_MODE is set
 DEV_MODE = os.getenv('DEV_MODE', '0') == '1'
-if not DEV_MODE:  # compile for all archs
-    os.environ['TORCH_CUDA_ARCH_LIST'] = '5.2;7.0;7.5;8.0;8.6;8.9+PTX;9.0'  #
+if not DEV_MODE and 'TORCH_CUDA_ARCH_LIST' not in os.environ:
+    # Compile for the GPU architectures the installed PyTorch was built for. This follows the
+    # CUDA version automatically (CUDA 13 dropped everything below 7.5; 12.8+ adds Blackwell, 10.0
+    # and 12.0). Set TORCH_CUDA_ARCH_LIST yourself to override, e.g. "8.9;12.0".
+    _archs = [a[3:] for a in torch.cuda.get_arch_list() if a.startswith('sm_')]
+    if not _archs:  # no GPU visible at build time: a default for the CUDA version
+        _cuda = tuple(int(v) for v in (torch.version.cuda or '0.0').split('.')[:2])
+        _archs = ['75', '80', '86', '89', '90'] if _cuda >= (13, 0) else ['70', '75', '80', '86', '89', '90']
+        if _cuda >= (12, 8):
+            _archs += ['100', '120']
+    if torch.cuda.is_available():  # plus native code for the GPUs on the build machine (e.g. 8.9, often not in PyTorch's list)
+        _archs += ['{}{}'.format(*torch.cuda.get_device_capability(i)) for i in range(torch.cuda.device_count())]
+    _archs = sorted(set(_archs), key=int)
+    os.environ['TORCH_CUDA_ARCH_LIST'] = ';'.join('{}.{}'.format(a[:-1], a[-1]) for a in _archs)
+    print('TORCH_CUDA_ARCH_LIST not set, compiling for', os.environ['TORCH_CUDA_ARCH_LIST'])
 
 CUDA_AVAILABLE = torch.cuda.is_available() and CUDA_HOME is not None
 
